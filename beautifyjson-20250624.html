@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>JSON格式化工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            display: flex;
+            gap: 20px;
+        }
+        textarea {
+            width: 45%;
+            height: 400px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .buttons {
+            margin: 10px 0;
+        }
+        button {
+            padding: 8px 15px;
+            margin-right: 10px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        h1 {
+            color: #333;
+        }
+        .history-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            position: relative;
+        }
+        .history-name {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .history-snippet {
+            color: #888;
+            font-size: 12px;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .history-actions {
+            display: flex;
+            gap: 6px;
+        }
+        .history-tooltip {
+            display: none;
+            position: absolute;
+            left: 100%;
+            top: 0;
+            z-index: 10;
+            background: #222;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            max-width: 400px;
+            min-width: 200px;
+            font-size: 13px;
+            margin-left: 10px;
+        }
+        .history-item:hover .history-tooltip {
+            display: block;
+        }
+        .diff-line {
+            background: #ffcccc;
+            color: #d8000c;
+            font-weight: bold;
+        }
+        .same-line {
+            background: #d4f7c5;
+        }
+        .compare-panel {
+            position: relative;
+            height: calc(100vh - 220px);
+            min-height: 300px;
+            max-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .compare-svg {
+            position: absolute;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .compare-cols-wrap {
+            display: flex;
+            gap: 0;
+            height: 100%;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+        .compare-col {
+            position: relative;
+            z-index: 3;
+            flex: 1 1 0;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow: hidden;
+        }
+        .compare-content-scroll {
+            background: #f8f8f8;
+            padding: 8px;
+            border-radius: 4px 4px 0 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            font-family: monospace;
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: none;
+            height: auto;
+            position: relative;
+            box-sizing: border-box;
+        }
+        .compare-lines-outer {
+            position: relative;
+            width: 100%;
+            min-height: 100%;
+            overflow: visible;
+        }
+        .compare-lines-wrap {
+            display: block;
+            will-change: transform;
+            transition: transform 0s;
+            position: relative;
+            min-width: 100%;
+        }
+        .compare-line-row {
+            display: flex;
+            align-items: flex-start;
+            white-space: nowrap;
+            position: relative;
+        }
+        .compare-line-content {
+            overflow-x: visible;
+            white-space: pre;
+            flex: 1 1 0;
+            min-width: 0;
+        }
+        .compare-scrollbar {
+            width: 100%;
+            height: 16px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            position: static;
+            background: #f0f0f0;
+            z-index: 20;
+            margin-top: 0;
+            border-radius: 0 0 4px 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            flex-shrink: 0;
+        }
+        .compare-scrollbar-inner {
+            height: 1px;
+        }
+        .compare-toolbar {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 10000;
+            padding-top: 24px;
+        }
+        .compare-title {
+            position: absolute;
+            left: 50%;
+            top: 36px;
+            transform: translateX(-50%);
+            z-index: 10001;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            background: #fff;
+            padding: 0 16px;
+        }
+        .fullscreen-btn, .exit-fullscreen-btn, .reverse-btn {
+            background: #4caf50;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 16px;
+            cursor: pointer;
+            font-size: 15px;
+        }
+        .exit-fullscreen-btn {
+            background: #e67e22;
+        }
+        .reverse-btn {
+            background: #2196f3;
+        }
+        .fullscreen-compare {
+            position: fixed !important;
+            left: 0; top: 0; right: 0; bottom: 0;
+            width: 100vw !important;
+            height: 100vh !important;
+            background: #fff;
+            z-index: 9999;
+            margin: 0 !important;
+            padding: 0 !important;
+            box-sizing: border-box;
+            max-height: none;
+            display: flex;
+            flex-direction: column;
+        }
+        .fullscreen-compare .compare-toolbar {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 12px;
+            z-index: 10000;
+            padding-top: 24px;
+        }
+        .fullscreen-compare .compare-panel {
+            position: absolute;
+            top: 64px;
+            left: 0; right: 0; bottom: 0;
+            height: auto !important;
+            min-height: 0 !important;
+            max-height: none !important;
+            display: flex;
+            flex-direction: column;
+        }
+        .fullscreen-compare .compare-title {
+            position: absolute;
+            left: 50%;
+            top: 36px;
+            transform: translateX(-50%);
+            z-index: 10001;
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            background: #fff;
+            padding: 0 16px;
+        }
+        .fullscreen-compare .compare-cols-wrap {
+            flex: 1 1 0;
+            min-height: 0;
+            height: 100%;
+        }
+        .fullscreen-compare .compare-content-scroll {
+            height: 100%;
+            max-height: 100%;
+        }
+        .fullscreen-compare-toolbar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            transform: none;
+            display: flex;
+            gap: 12px;
+            z-index: 10001;
+            background: transparent;
+            padding: 18px 0 8px 20px;
+            box-shadow: none;
+        }
+        .line-num {
+            display: inline-block;
+            width: 40px;
+            color: #aaa;
+            font-size: 12px;
+            text-align: right;
+            margin-right: 8px;
+            user-select: none;
+            font-family: monospace;
+            vertical-align: top;
+        }
+        .same-line, .diff-line {
+            width: 100%;
+            min-width: inherit;
+            box-sizing: border-box;
+        }
+        .compare-line-content-wrap { display: inline-block; vertical-align: top; will-change: transform; }
+        .fullscreen-compare .compare-col {
+            height: 100%;
+            overflow: hidden;
+        }
+        .fullscreen-compare .compare-content-scroll {
+            max-height: calc(100% - 16px);
+            height: calc(100% - 16px);
+        }
+    </style>
+</head>
+<body>
+    <h1>JSON格式化工具</h1>
+    <div class="buttons">
+        <button onclick="formatJSON()">格式化</button>
+        <button onclick="clearContent()">清空</button>
+        <button onclick="saveHistory()">保存</button>
+        <button id="compare-btn" onclick="compareSelected()" disabled style="margin-left:10px;">比较</button>
+        <button class="reverse-btn" onclick="reverseCompare()" style="margin-left:6px;">反转</button>
+        <button class="fullscreen-btn" onclick="enterFullscreen()" style="margin-left:6px;">全屏</button>
+    </div>
+    <div class="container">
+        <textarea id="input" placeholder="请输入需要格式化的JSON字符串"></textarea>
+        <textarea id="output" readonly placeholder="格式化后的JSON将显示在这里"></textarea>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:20px;align-items:flex-start;">
+        <div style="width:35%;min-width:220px;max-width:350px;">
+            <h2>历史记录</h2>
+            <div id="history-list"></div>
+        </div>
+        <div style="flex:1;min-width:0;max-width:calc(100vw - 420px);">
+            <h2 id="detail-title">详细内容</h2>
+            <div id="history-detail" style="background:#fff;border:1px solid #ccc;border-radius:4px;padding:10px;min-height:120px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 自适应textarea高度
+        function autoResizeTextarea(el) {
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight) + 'px';
+        }
+
+        function formatJSON() {
+            const input = document.getElementById('input');
+            const output = document.getElementById('output');
+            autoResizeTextarea(input);
+            let value = input.value;
+            let jsonObj = null;
+            try {
+                jsonObj = JSON.parse(value);
+                output.value = JSON.stringify(jsonObj, null, '\t');
+            } catch (error) {
+                // 尝试补全缺失的右大括号/右中括号
+                let fixed = tryFixJson(value);
+                if (fixed.success) {
+                    try {
+                        jsonObj = JSON.parse(fixed.json);
+                        output.value = JSON.stringify(jsonObj, null, '\t');
+                        output.value += '\n\n【原始JSON缺失部分内容，已自动补全右括号】';
+                    } catch (e2) {
+                        output.value = '错误：无效的JSON格式\n' + error.message;
+                    }
+                } else {
+                    output.value = '错误：无效的JSON格式\n' + error.message;
+                }
+            }
+            autoResizeTextarea(output);
+        }
+
+        // 尝试补全缺失的右大括号/右中括号
+        function tryFixJson(str) {
+            let s = str.trim();
+            let leftCurly = (s.match(/\{/g) || []).length;
+            let rightCurly = (s.match(/\}/g) || []).length;
+            let leftSquare = (s.match(/\[/g) || []).length;
+            let rightSquare = (s.match(/\]/g) || []).length;
+            let fixed = s;
+            let ok = false;
+            while (leftCurly > rightCurly) { fixed += '}'; rightCurly++; ok = true; }
+            while (leftSquare > rightSquare) { fixed += ']'; rightSquare++; ok = true; }
+            return { success: ok, json: fixed };
+        }
+
+        function clearContent() {
+            document.getElementById('input').value = '';
+            document.getElementById('output').value = '';
+            document.getElementById('input').style.height = '40px';
+            document.getElementById('output').style.height = '40px';
+        }
+
+        // 保存格式化后的JSON到历史记录
+        function saveHistory() {
+            const output = document.getElementById('output').value;
+            if (!output || output.startsWith('错误')) {
+                alert('请先格式化有效的JSON后再保存！');
+                return;
+            }
+            let name = prompt('请输入本条记录的名称：');
+            if (name === null) return;
+            name = name.trim() || '未命名';
+            const id = Date.now();
+            const history = JSON.parse(localStorage.getItem('jsonHistory') || '[]');
+            history.unshift({ id, name, content: output });
+            localStorage.setItem('jsonHistory', JSON.stringify(history));
+            renderHistory();
+        }
+
+        // 删除历史记录
+        function deleteHistory(id) {
+            let history = JSON.parse(localStorage.getItem('jsonHistory') || '[]');
+            history = history.filter(item => item.id !== id);
+            localStorage.setItem('jsonHistory', JSON.stringify(history));
+            renderHistory();
+        }
+
+        let selectedIds = [];
+        let compareOrder = [0, 1]; // 用于反转
+        let isFullscreen = false;
+
+        // 渲染历史记录（带多选框和比较按钮）
+        function renderHistory() {
+            const history = JSON.parse(localStorage.getItem('jsonHistory') || '[]');
+            const list = document.getElementById('history-list');
+            const compareBtn = document.getElementById('compare-btn');
+            if (history.length === 0) {
+                list.innerHTML = '<p style="color:#888;">暂无历史记录</p>';
+                document.getElementById('history-detail').innerHTML = '';
+                compareBtn.disabled = true;
+                return;
+            }
+            list.innerHTML = history.map(item => {
+                const snippet = item.content.replace(/\s+/g, '').slice(0, 40) + (item.content.replace(/\s+/g, '').length > 40 ? '...' : '');
+                const checked = selectedIds.includes(item.id) ? 'checked' : '';
+                return `
+                    <div class="history-item" onclick="showDetail(${item.id})">
+                        <input type="checkbox" style="margin-right:6px;" onclick="event.stopPropagation();toggleSelect(${item.id})" ${checked} />
+                        <span class="history-name">${item.name}</span>
+                        <span class="history-snippet" title="${snippet}">${snippet}</span>
+                        <div class="history-actions" onclick="event.stopPropagation();">
+                            <button onclick="showDetail(${item.id})">查看</button>
+                            <button onclick="deleteHistory(${item.id})" style="background:#e74c3c;">清理</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            // 比较按钮状态
+            compareBtn.disabled = selectedIds.length !== 2;
+        }
+
+        // 多选框切换
+        function toggleSelect(id) {
+            if (selectedIds.includes(id)) {
+                selectedIds = selectedIds.filter(i => i !== id);
+            } else {
+                if (selectedIds.length < 2) {
+                    selectedIds.push(id);
+                } else {
+                    // 最多只能选2个
+                    selectedIds = [selectedIds[1], id];
+                }
+            }
+            renderHistory();
+        }
+
+        // 比较按钮点击
+        function compareSelected() {
+            if (selectedIds.length !== 2) return;
+            // 清空输入输出框
+            document.getElementById('input').value = '';
+            document.getElementById('output').value = '';
+            document.getElementById('input').style.height = '40px';
+            document.getElementById('output').style.height = '40px';
+            autoResizeTextarea(document.getElementById('input'));
+            autoResizeTextarea(document.getElementById('output'));
+            const history = JSON.parse(localStorage.getItem('jsonHistory') || '[]');
+            const items = [
+                history.find(h => h.id === selectedIds[compareOrder[0]]),
+                history.find(h => h.id === selectedIds[compareOrder[1]])
+            ];
+            const detail = document.getElementById('history-detail');
+            document.getElementById('detail-title').innerHTML = '';
+            // 按行分割，先格式化
+            let content1 = '';
+            let content2 = '';
+            try {
+                content1 = JSON.stringify(JSON.parse(items[0].content), null, '\t');
+            } catch (e) {
+                content1 = items[0].content;
+            }
+            try {
+                content2 = JSON.stringify(JSON.parse(items[1].content), null, '\t');
+            } catch (e) {
+                content2 = items[1].content;
+            }
+            const lines1 = content1.split(/\r?\n/);
+            const lines2 = content2.split(/\r?\n/);
+            const maxLen = Math.max(lines1.length, lines2.length);
+            let html1 = '', html2 = '';
+            // 记录所有内容相同的行的配对（多对多）
+            let samePairs = [];
+            let lineToIdxs1 = {}, lineToIdxs2 = {};
+            for (let i = 0; i < lines1.length; i++) {
+                if (!lineToIdxs1[lines1[i]]) lineToIdxs1[lines1[i]] = [];
+                lineToIdxs1[lines1[i]].push(i);
+            }
+            for (let i = 0; i < lines2.length; i++) {
+                if (!lineToIdxs2[lines2[i]]) lineToIdxs2[lines2[i]] = [];
+                lineToIdxs2[lines2[i]].push(i);
+            }
+            // 多对多配对：每一行与另一侧所有相同内容的行配对
+            for (let l in lineToIdxs1) {
+                if (lineToIdxs2[l]) {
+                    lineToIdxs1[l].forEach(i => {
+                        lineToIdxs2[l].forEach(j => {
+                            samePairs.push([i, j]);
+                        });
+                    });
+                }
+            }
+            // 标记哪些行是相同行
+            let same1 = new Set(), same2 = new Set();
+            samePairs.forEach(pair => { same1.add(pair[0]); same2.add(pair[1]); });
+            // 渲染每一行
+            for (let i = 0; i < lines1.length; i++) {
+                const lineNum = `<span class='line-num'>${i + 1}</span>`;
+                let lineClass = '';
+                if (same1.has(i)) lineClass = 'same-line';
+                else if (lines2[i] === undefined || lines1[i] !== lines2[i]) lineClass = 'diff-line';
+                html1 += `<div class='compare-line-row ${lineClass}' data-line1='${i}'><span class='line-num'>${i + 1}</span><span class='compare-line-content-wrap'><span class='compare-line-content'>${escapeHtml(lines1[i])}</span></span></div>`;
+            }
+            for (let i = 0; i < lines2.length; i++) {
+                const lineNum = `<span class='line-num'>${i + 1}</span>`;
+                let lineClass = '';
+                if (same2.has(i)) lineClass = 'same-line';
+                else if (lines1[i] === undefined || lines2[i] !== lines1[i]) lineClass = 'diff-line';
+                html2 += `<div class='compare-line-row ${lineClass}' data-line2='${i}'><span class='line-num'>${i + 1}</span><span class='compare-line-content-wrap'><span class='compare-line-content'>${escapeHtml(lines2[i])}</span></span></div>`;
+            }
+            setTimeout(() => drawCompareCurves(samePairs, lines1.length, lines2.length), 0);
+            detail.innerHTML = `
+                <div class="compare-panel">
+                    <svg class="compare-svg"></svg>
+                    <div class="compare-cols-wrap">
+                        <div class="compare-col" id="col1">
+                            <div><b>名称：</b>${items[0].name} <b>ID：</b>${items[0].id}</div>
+                            <div id="lines1" class="compare-content-scroll">
+                                <div class="compare-lines-outer">
+                                    <div class="compare-lines-wrap">${html1}</div>
+                                </div>
+                            </div>
+                            <div class="compare-scrollbar"><div class="compare-scrollbar-inner"></div></div>
+                        </div>
+                        <div class="compare-col" id="col2">
+                            <div><b>名称：</b>${items[1].name} <b>ID：</b>${items[1].id}</div>
+                            <div id="lines2" class="compare-content-scroll">
+                                <div class="compare-lines-outer">
+                                    <div class="compare-lines-wrap">${html2}</div>
+                                </div>
+                            </div>
+                            <div class="compare-scrollbar"><div class="compare-scrollbar-inner"></div></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            // 统一横向滚动条逻辑
+            function syncCompareScrollbars() {
+                // 横向滑动条
+                const scroll1 = document.querySelector('#lines1.compare-content-scroll');
+                const scroll2 = document.querySelector('#lines2.compare-content-scroll');
+                const outer1 = scroll1.querySelector('.compare-lines-outer');
+                const outer2 = scroll2.querySelector('.compare-lines-outer');
+                const wrap1 = scroll1.querySelector('.compare-lines-wrap');
+                const wrap2 = scroll2.querySelector('.compare-lines-wrap');
+                const bar1 = scroll1.parentElement.querySelector('.compare-scrollbar');
+                const bar2 = scroll2.parentElement.querySelector('.compare-scrollbar');
+                const inner1 = bar1.querySelector('.compare-scrollbar-inner');
+                const inner2 = bar2.querySelector('.compare-scrollbar-inner');
+                // 计算最大内容宽度
+                let maxW1 = 0, maxW2 = 0;
+                wrap1.querySelectorAll('.compare-line-row').forEach(row => { maxW1 = Math.max(maxW1, row.scrollWidth); });
+                wrap2.querySelectorAll('.compare-line-row').forEach(row => { maxW2 = Math.max(maxW2, row.scrollWidth); });
+                const buffer = 80;
+                const maxW = Math.max(maxW1, maxW2, outer1.clientWidth, outer2.clientWidth) + buffer;
+                // 设置内容区和色块宽度
+                wrap1.style.width = maxW + 'px';
+                wrap2.style.width = maxW + 'px';
+                wrap1.childNodes.forEach(row => { if (row.style) row.style.width = maxW + 'px'; });
+                wrap2.childNodes.forEach(row => { if (row.style) row.style.width = maxW + 'px'; });
+                // 设置滑动条宽度
+                inner1.style.width = maxW + 'px';
+                inner2.style.width = maxW + 'px';
+                bar1.style.display = maxW > outer1.clientWidth ? '' : 'none';
+                bar2.style.display = maxW > outer2.clientWidth ? '' : 'none';
+                // 横向滑动条控制内容区transform
+                function setScroll(left) {
+                    wrap1.querySelectorAll('.compare-line-content-wrap').forEach(el => { el.style.transform = `translateX(${-left}px)`; });
+                    wrap2.querySelectorAll('.compare-line-content-wrap').forEach(el => { el.style.transform = `translateX(${-left}px)`; });
+                }
+                bar1.onscroll = function() { setScroll(bar1.scrollLeft); bar2.scrollLeft = bar1.scrollLeft; };
+                bar2.onscroll = function() { setScroll(bar2.scrollLeft); bar1.scrollLeft = bar2.scrollLeft; };
+                // 初始化位置
+                setScroll(0);
+            }
+            setTimeout(syncCompareScrollbars, 10);
+        }
+
+        // 绘制SVG曲线连接相同行
+        function drawCompareCurves(samePairs, len1, len2) {
+            const svg = document.querySelector('.compare-svg');
+            if (!svg) return;
+            const col1 = document.getElementById('lines1');
+            const col2 = document.getElementById('lines2');
+            if (!col1 || !col2) return;
+            // 获取每一行的DOM节点
+            const nodes1 = col1.querySelectorAll('.same-line');
+            const nodes2 = col2.querySelectorAll('.same-line');
+            // 计算每行的中心点
+            let pos1 = {}, pos2 = {};
+            nodes1.forEach(node => {
+                const idx = parseInt(node.getAttribute('data-line1'));
+                const rect = node.getBoundingClientRect();
+                pos1[idx] = rect;
+            });
+            nodes2.forEach(node => {
+                const idx = parseInt(node.getAttribute('data-line2'));
+                const rect = node.getBoundingClientRect();
+                pos2[idx] = rect;
+            });
+            // SVG宽高
+            const panel = document.querySelector('.compare-panel');
+            const panelRect = panel.getBoundingClientRect();
+            svg.setAttribute('width', panelRect.width);
+            svg.setAttribute('height', panelRect.height);
+            svg.innerHTML = '';
+            // 画曲线
+            samePairs.forEach(pair => {
+                const i = pair[0], j = pair[1];
+                if (pos1[i] && pos2[j]) {
+                    // 计算相对panel的坐标
+                    const y1 = pos1[i].top - panelRect.top + pos1[i].height/2;
+                    const y2 = pos2[j].top - panelRect.top + pos2[j].height/2;
+                    const x1 = col1.offsetLeft + col1.offsetWidth;
+                    const x2 = col2.offsetLeft;
+                    // 贝塞尔曲线
+                    const path = `M${x1},${y1} C${x1+40},${y1} ${x2-40},${y2} ${x2},${y2}`;
+                    svg.innerHTML += `<path d="${path}" stroke="#4caf50" fill="none" stroke-width="2" opacity="0.7"/>`;
+                }
+            });
+        }
+
+        // 反转对比窗口
+        function reverseCompare() {
+            compareOrder.reverse();
+            compareSelected();
+        }
+
+        // 全屏与还原
+        function enterFullscreen() {
+            const panel = document.querySelector('.compare-panel');
+            if (!panel) return;
+            const container = panel.parentElement;
+            container.classList.add('fullscreen-compare');
+            isFullscreen = true;
+            // 隐藏原toolbar中的全屏按钮，显示还原按钮
+            let toolbar = document.querySelector('.buttons');
+            if (toolbar) {
+                let btnFull = toolbar.querySelector('.fullscreen-btn');
+                let btnExit = toolbar.querySelector('.exit-fullscreen-btn');
+                if (btnFull) btnFull.style.display = 'none';
+                if (btnExit) btnExit.style.display = 'none';
+            }
+            // 添加全屏toolbar到body顶部
+            let fsToolbar = document.createElement('div');
+            fsToolbar.className = 'fullscreen-compare-toolbar';
+            fsToolbar.innerHTML = `
+                <button class='reverse-btn' onclick='reverseCompare()'>反转</button>
+                <button class='exit-fullscreen-btn'>还原</button>
+            `;
+            fsToolbar.querySelector('.exit-fullscreen-btn').onclick = exitFullscreen;
+            document.body.appendChild(fsToolbar);
+            document.body.style.overflow = 'hidden';
+        }
+        function exitFullscreen() {
+            const panel = document.querySelector('.compare-panel');
+            if (!panel) return;
+            const container = panel.parentElement;
+            container.classList.remove('fullscreen-compare');
+            isFullscreen = false;
+            // 恢复原toolbar
+            let toolbar = document.querySelector('.buttons');
+            if (toolbar) {
+                let btnFull = toolbar.querySelector('.fullscreen-btn');
+                let btnExit = toolbar.querySelector('.exit-fullscreen-btn');
+                if (btnFull) btnFull.style.display = '';
+                if (btnExit) btnExit.style.display = '';
+            }
+            // 移除全屏toolbar
+            let fsToolbar = document.querySelector('.fullscreen-compare-toolbar');
+            if (fsToolbar) fsToolbar.remove();
+            document.body.style.overflow = '';
+        }
+
+        // 显示详细内容
+        function showDetail(id) {
+            const history = JSON.parse(localStorage.getItem('jsonHistory') || '[]');
+            const item = history.find(h => h.id === id);
+            const detail = document.getElementById('history-detail');
+            document.getElementById('detail-title').innerText = '详细内容';
+            if (!item) {
+                detail.innerHTML = '';
+                return;
+            }
+            detail.innerHTML = `<div><b>名称：</b>${item.name} <b>ID：</b>${item.id}</div>
+                <pre style="background:#f8f8f8;padding:8px;border-radius:4px;overflow:auto;">${escapeHtml(item.content)}</pre>`;
+        }
+
+        // HTML转义，防止浮层内容格式错乱
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, function (c) {
+                return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+            });
+        }
+
+        // 递归美化JSON，保证每层缩进4空格
+        function formatJsonPretty(obj, level) {
+            const indent = '    '.repeat(level);
+            if (Array.isArray(obj)) {
+                if (obj.length === 0) return '[]';
+                let res = '[\n';
+                for (let i = 0; i < obj.length; i++) {
+                    res += indent + '    ' + formatJsonPretty(obj[i], level + 1);
+                    if (i < obj.length - 1) res += ',';
+                    res += '\n';
+                }
+                res += indent + ']';
+                return res;
+            } else if (typeof obj === 'object' && obj !== null) {
+                const keys = Object.keys(obj);
+                if (keys.length === 0) return '{}';
+                let res = '{\n';
+                keys.forEach((key, idx) => {
+                    res += indent + '    ' + JSON.stringify(key) + ': ' + formatJsonPretty(obj[key], level + 1);
+                    if (idx < keys.length - 1) res += ',';
+                    res += '\n';
+                });
+                res += indent + '}';
+                return res;
+            } else {
+                return JSON.stringify(obj);
+            }
+        }
+
+        // 页面加载时自动格式化示例JSON并渲染历史
+        window.onload = function() {
+            formatJSON();
+            renderHistory();
+            // 默认显示第一条详细内容
+            const history = JSON.parse(localStorage.getItem('jsonHistory') || '[]');
+            if (history.length > 0) showDetail(history[0].id);
+
+            // 输入框自适应高度
+            const input = document.getElementById('input');
+            const output = document.getElementById('output');
+            autoResizeTextarea(input);
+            autoResizeTextarea(output);
+            input.addEventListener('input', function() { autoResizeTextarea(this); });
+            output.addEventListener('input', function() { autoResizeTextarea(this); });
+        };
+    </script>
+</body>
+</html>
+
