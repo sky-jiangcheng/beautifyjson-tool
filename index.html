@@ -977,14 +977,6 @@
             min-height: 0;
         }
 
-        .compare-svg {
-            position: absolute;
-            left: 0; top: 0;
-            width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 2;
-        }
-
         .compare-col {
             flex: 1;
             display: flex;
@@ -1020,39 +1012,26 @@
             flex-shrink: 0;
         }
 
-        .compare-line {
-            display: flex;
-            align-items: flex-start;
-            padding: 0 14px;
-            min-height: 21px;
-            transition: background var(--transition-fast);
+        /* Diff tree highlight styles */
+        .jt-diff-added > .jt-line,
+        .jt-diff-added.jt-line {
+            background: rgba(63, 185, 80, 0.12);
         }
-
-        .compare-line.diff {
-            background: rgba(248, 81, 73, 0.06);
-            border-left: 3px solid var(--red);
+        .jt-diff-removed > .jt-line:first-child,
+        .jt-diff-removed.jt-line {
+            background: rgba(248, 81, 73, 0.12);
         }
-
-        .compare-line.same {
-            border-left: 3px solid transparent;
+        .jt-diff-changed > .jt-line:first-child,
+        .jt-diff-changed.jt-line {
+            background: rgba(210, 153, 34, 0.12);
         }
-
-        .compare-line:hover {
-            background: rgba(255,255,255,0.02);
-        }
-
-        .compare-line-num {
-            width: 36px;
-            text-align: right;
-            padding-right: 10px;
+        .jt-diff-placeholder {
             color: var(--text-muted);
-            user-select: none;
-            flex-shrink: 0;
-            font-size: 12px;
+            font-style: italic;
         }
-
-        .compare-line.diff .compare-line-num { color: rgba(248, 81, 73, 0.6); }
-        .compare-line-text { white-space: pre; flex: 1; min-width: 0; }
+        .diff-empty {
+            opacity: 0.35;
+        }
 
         /* ========== Toast ========== */
         .toast {
@@ -1360,9 +1339,8 @@
                 <button class="btn btn-danger" onclick="closeCompare()">关闭</button>
             </div>
         </div>
-        <div class="compare-body">
-            <svg class="compare-svg" id="compare-svg"></svg>
-            <div class="compare-col" id="compare-left">
+            <div class="compare-body">
+                <div class="compare-col" id="compare-left">
                 <div class="compare-col-header" id="compare-left-title"></div>
                 <div class="compare-content" id="compare-left-content"></div>
             </div>
@@ -1964,96 +1942,154 @@
         });
 
         requestAnimationFrame(() => {
-            let content1 = '', content2 = '';
-            try { content1 = JSON.stringify(JSON.parse(items[0].content), null, 2); } catch { content1 = items[0].content; }
-            try { content2 = JSON.stringify(JSON.parse(items[1].content), null, 2); } catch { content2 = items[1].content; }
+            var oldObj, newObj;
+            try { oldObj = JSON.parse(items[0].content); } catch { oldObj = items[0].content; }
+            try { newObj = JSON.parse(items[1].content); } catch { newObj = items[1].content; }
 
-            const lines1 = content1.split(/\r?\n/);
-            const lines2 = content2.split(/\r?\n/);
+            var diff = diffJson(oldObj, newObj);
+            var rows = buildAlignedRows(diff, 0);
+            var leftHtml = '', rightHtml = '';
 
-            const map2 = {};
-            for (let i = 0; i < lines2.length; i++) {
-                const l = lines2[i];
-                if (!map2[l]) map2[l] = [];
-                map2[l].push(i);
-            }
+            rows.forEach(function(row) {
+                leftHtml += renderRow(row, 'left');
+                rightHtml += renderRow(row, 'right');
+            });
 
-            const samePairs = [];
-            const map2Idx = {};
-            for (const line in map2) map2Idx[line] = 0;
-
-            const same1 = new Set();
-            for (let i = 0; i < lines1.length; i++) {
-                const l = lines1[i];
-                const indices = map2[l];
-                if (indices) {
-                    const idx = map2Idx[l];
-                    if (idx < indices.length) {
-                        samePairs.push([i, indices[idx]]);
-                        same1.add(i);
-                        map2Idx[l] = idx + 1;
-                    }
-                }
-            }
-            const same2 = new Set(samePairs.map(p => p[1]));
-
-            let html1 = '';
-            for (let i = 0; i < lines1.length; i++) {
-                const cls = same1.has(i) ? 'same' : 'diff';
-                html1 += `<div class="compare-line ${cls}" data-line1="${i}"><span class="compare-line-num">${i + 1}</span><span class="compare-line-text">${escapeHtml(lines1[i])}</span></div>`;
-            }
-            let html2 = '';
-            for (let i = 0; i < lines2.length; i++) {
-                const cls = same2.has(i) ? 'same' : 'diff';
-                html2 += `<div class="compare-line ${cls}" data-line2="${i}"><span class="compare-line-num">${i + 1}</span><span class="compare-line-text">${escapeHtml(lines2[i])}</span></div>`;
-            }
-
-            document.getElementById('compare-left-content').innerHTML = html1;
-            document.getElementById('compare-right-content').innerHTML = html2;
-
-            requestAnimationFrame(() => drawCompareCurves(samePairs));
+            document.getElementById('compare-left-content').innerHTML = '<div class="json-tree">' + leftHtml + '</div>';
+            document.getElementById('compare-right-content').innerHTML = '<div class="json-tree">' + rightHtml + '</div>';
         });
     }
 
-    function drawCompareCurves(samePairs) {
-        const svg = document.getElementById('compare-svg');
-        if (!svg) return;
+    function diffJson(a, b) {
+        if (a === b) return { t: 'same', v: a };
 
-        const container = document.querySelector('.compare-body');
-        const containerRect = container.getBoundingClientRect();
+        var ta = typeof a, tb = typeof b;
+        if (ta !== tb) return { t: 'chg', o: a, n: b };
+        if (a === null || b === null) return { t: 'chg', o: a, n: b };
+        if (ta !== 'object') return { t: 'chg', o: a, n: b };
 
-        svg.setAttribute('width', containerRect.width);
-        svg.setAttribute('height', containerRect.height);
+        var isArrA = Array.isArray(a), isArrB = Array.isArray(b);
+        if (isArrA !== isArrB) return { t: 'chg', o: a, n: b };
 
-        const leftCol = document.getElementById('compare-left-content');
-        const rightCol = document.getElementById('compare-right-content');
+        if (isArrA) {
+            var children = [], hasDiff = false;
+            var maxLen = Math.max(a.length, b.length);
+            for (var i = 0; i < maxLen; i++) {
+                if (i >= a.length) { children.push({ k: String(i), d: { t: 'add', v: b[i] } }); hasDiff = true; }
+                else if (i >= b.length) { children.push({ k: String(i), d: { t: 'rem', v: a[i] } }); hasDiff = true; }
+                else { var cd = diffJson(a[i], b[i]); children.push({ k: String(i), d: cd }); if (cd.t !== 'same') hasDiff = true; }
+            }
+            return hasDiff ? { t: 'arr', c: children } : { t: 'same', v: a };
+        }
 
-        svg.innerHTML = `
-            <defs>
-                <linearGradient id="curve-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:0.3" />
-                    <stop offset="100%" style="stop-color:#a371f7;stop-opacity:0.3" />
-                </linearGradient>
-            </defs>
-        `;
+        var children = [], hasDiff = false;
+        var allKeys = [];
+        for (var k in a) { if (allKeys.indexOf(k) < 0) allKeys.push(k); }
+        for (var k in b) { if (allKeys.indexOf(k) < 0) allKeys.push(k); }
+        allKeys.sort();
+        for (var i = 0; i < allKeys.length; i++) {
+            var k = allKeys[i];
+            if (!(k in a)) { children.push({ k: k, d: { t: 'add', v: b[k] } }); hasDiff = true; }
+            else if (!(k in b)) { children.push({ k: k, d: { t: 'rem', v: a[k] } }); hasDiff = true; }
+            else { var cd = diffJson(a[k], b[k]); children.push({ k: k, d: cd }); if (cd.t !== 'same') hasDiff = true; }
+        }
+        return hasDiff ? { t: 'obj', c: children } : { t: 'same', v: a };
+    }
 
-        samePairs.forEach(pair => {
-            const leftEl = leftCol.querySelector(`[data-line1="${pair[0]}"]`);
-            const rightEl = rightCol.querySelector(`[data-line2="${pair[1]}"]`);
-            if (!leftEl || !rightEl) return;
+    function buildAlignedRows(d, depth) {
+        var indent = '  '.repeat(depth);
+        var r = [];
 
-            const lr = leftEl.getBoundingClientRect();
-            const rr = rightEl.getBoundingClientRect();
+        switch (d.t) {
+            case 'same':
+                r.push({ d: depth, lt: 'same', lv: renderDiffValue(d.v), rt: 'same', rv: renderDiffValue(d.v) });
+                break;
+            case 'chg':
+                r.push({ d: depth, lt: 'chg-o', lv: renderDiffValue(d.o), rt: 'chg-n', rv: renderDiffValue(d.n) });
+                break;
+            case 'add':
+                r.push({ d: depth, lt: 'empty', lv: '', rt: 'add', rv: renderDiffValue(d.v) });
+                break;
+            case 'rem':
+                r.push({ d: depth, lt: 'rem', lv: renderDiffValue(d.v), rt: 'empty', rv: '' });
+                break;
+            case 'obj':
+            case 'arr':
+                var isArr = d.t === 'arr';
+                var sum = isArr ? (isArr ? '[' : '{') : '{';
+                var clsOpen = 'jt-diff-same';
+                if (d.c.length > 0) {
+                    if (d.c.some(function(c) { return c.d.t !== 'same'; })) clsOpen = 'jt-diff-changed';
+                }
+                r.push({ d: depth, lt: 'open', lv: sum + ' (展开)', rt: 'open', rv: sum + ' (展开)', cls: clsOpen });
+                for (var i = 0; i < d.c.length; i++) {
+                    var child = d.c[i];
+                    var prefix = d.t === 'obj' ? '<span class="jt-key">' + JSON.stringify(child.k) + '</span>: ' : '';
 
-            const x1 = leftCol.getBoundingClientRect().right - containerRect.left;
-            const x2 = rightCol.getBoundingClientRect().left - containerRect.left;
-            const y1 = lr.top - containerRect.top + lr.height / 2;
-            const y2 = rr.top - containerRect.top + rr.height / 2;
+                    var subRows = buildAlignedRows(child.d, depth + 1);
+                    for (var j = 0; j < subRows.length; j++) {
+                        if (j === 0) {
+                            subRows[j].lPrefix = prefix;
+                            subRows[j].rPrefix = prefix;
+                        }
+                        r.push(subRows[j]);
+                    }
+                }
+                var clsClose = 'jt-diff-same';
+                if (d.c.length > 0) {
+                    if (d.c.some(function(c) { return c.d.t !== 'same'; })) clsClose = 'jt-diff-changed';
+                }
+                r.push({ d: depth, lt: 'close', lv: isArr ? ']' : '}', rt: 'close', rv: isArr ? ']' : '}', cls: clsClose });
+                break;
+        }
+        return r;
+    }
 
-            const cx = (x1 + x2) / 2;
-            const path = `M${x1},${y1} C${cx},${y1} ${cx},${y2} ${x2},${y2}`;
-            svg.innerHTML += `<path d="${path}" stroke="url(#curve-grad)" fill="none" stroke-width="1" opacity="0.6" />`;
-        });
+    function renderRow(row, side) {
+        var cls = '';
+        var val = '';
+        var prefix = '';
+        var indent = '  '.repeat(row.d);
+
+        if (side === 'left') {
+            cls = 'diff-' + row.lt;
+            val = row.lv;
+            prefix = row.lPrefix || '';
+        } else {
+            cls = 'diff-' + row.rt;
+            val = row.rv;
+            prefix = row.rPrefix || '';
+        }
+
+        if (row.lt === 'empty' && side === 'left') {
+            return '<div class="jt-line diff-empty" style="padding-left:' + (row.d * 16) + 'px"><span class="jt-diff-placeholder">—</span></div>';
+        }
+        if (row.rt === 'empty' && side === 'right') {
+            return '<div class="jt-line diff-empty" style="padding-left:' + (row.d * 16) + 'px"><span class="jt-diff-placeholder">—</span></div>';
+        }
+
+        var diffCls = '';
+        if (row.lt === 'chg-o' || row.rt === 'chg-n') diffCls = ' jt-diff-changed';
+        else if (row.lt === 'rem' || row.rt === 'add') {
+            diffCls = row.lt === 'rem' ? ' jt-diff-removed' : ' jt-diff-added';
+        }
+
+        var padLeft = row.d * 16;
+        if (row.lt === 'open' || row.lt === 'close') {
+            return '<div class="jt-line' + (row.cls || '') + '" style="padding-left:' + padLeft + 'px"><span class="jt-bracket">' + val + '</span></div>';
+        }
+
+        return '<div class="jt-line' + diffCls + '" style="padding-left:' + padLeft + 'px">' + prefix + val + '</div>';
+    }
+
+    function renderDiffValue(v) {
+        if (v === null) return '<span class="jt-null">null</span>';
+        if (typeof v === 'boolean') return '<span class="jt-bool">' + v + '</span>';
+        if (typeof v === 'number') return '<span class="jt-number">' + v + '</span>';
+        if (typeof v === 'string') return '<span class="jt-string">' + JSON.stringify(v) + '</span>';
+        if (Array.isArray(v)) return '<span class="jt-bracket">[' + v.length + ']</span>';
+        if (typeof v === 'object') return '<span class="jt-bracket">{' + Object.keys(v).length + '}</span>';
+        return String(v);
     }
 
     function reverseCompare() {
