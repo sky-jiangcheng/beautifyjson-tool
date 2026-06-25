@@ -1563,18 +1563,22 @@
 
     function renderRegularOutput(content) {
         const area = document.getElementById('output-content-area');
-        const lineCount = content.split('\n').length;
+        var obj;
+        try { obj = JSON.parse(content); } catch (e) { obj = null; }
 
-        let html = '<div class="output-content"><pre><code class="language-json hljs"></code></pre></div>';
-        area.innerHTML = html;
+        var treeHtml = obj !== null ? renderJsonNode(null, obj) : '<pre><code class="language-json hljs">' + escapeHtml(content) + '</code></pre>';
+        area.innerHTML = '<div class="output-content"><div class="json-tree">' + treeHtml + '</div></div>';
 
-        const codeEl = area.querySelector('code');
-        codeEl.textContent = content;
-        hljs.highlightElement(codeEl);
-
+        var treeEl = area.querySelector('.json-tree');
+        var lineCount = treeEl ? countVisibleLines(treeEl, true) : content.split('\n').length;
         renderLineNumbers(lineCount);
 
-        const contentEl = area.querySelector('.output-content');
+        if (obj === null) {
+            var codeEl = area.querySelector('code');
+            if (codeEl) { codeEl.textContent = content; hljs.highlightElement(codeEl); }
+        }
+
+        var contentEl = area.querySelector('.output-content');
         if (contentEl) {
             contentEl.addEventListener('scroll', syncLineNumberScroll, { once: false });
         }
@@ -1707,15 +1711,16 @@
     }
 
     function updateTreeLineNumbers() {
-        var linenos = document.getElementById('list-detail-linenos');
+        var target = document.getElementById('list-detail-linenos');
+        if (!target) target = document.querySelector('.output-linenos');
         var tree = document.querySelector('.json-tree');
-        if (!linenos || !tree) return;
+        if (!target || !tree) return;
         var count = countVisibleLines(tree, true);
-        linenos.innerHTML = '';
+        target.innerHTML = '';
         for (var i = 0; i < count; i++) {
             var span = document.createElement('span');
             span.textContent = i + 1;
-            linenos.appendChild(span);
+            target.appendChild(span);
         }
     }
 
