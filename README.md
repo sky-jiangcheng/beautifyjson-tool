@@ -2,7 +2,7 @@
 
 一个现代化的 JSON 格式化与对比工具，纯前端单文件实现，无需后端。
 
-**在线使用**: https://sky-jiangcheng.github.io/beautifyjson-tool/
+**在线使用**: https://sky-jiangcheng.github.io/beautifyjson/
 
 ## 功能
 
