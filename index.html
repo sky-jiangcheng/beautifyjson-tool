@@ -264,14 +264,14 @@
             flex: 1;
             position: relative;
             overflow: hidden;
-            display: flex;
         }
 
         /* ========== Input Textarea ========== */
         #input {
-            flex: 1;
-            min-height: 0;
-            width: 100%;
+            position: absolute;
+            inset: 0;
+            width: auto;
+            height: auto;
             padding: 12px 16px;
             border: none;
             outline: none;
@@ -301,13 +301,14 @@
 
         /* ========== Output Area ========== */
         .output-wrap {
-            width: 100%;
-            flex: 1;
+            position: absolute;
+            inset: 0;
+            width: auto;
+            height: auto;
             overflow: hidden;
             background: var(--bg-primary);
             display: flex;
             flex-direction: column;
-            min-height: 0;
         }
 
         .output-linenos {
@@ -425,6 +426,7 @@
             display: flex;
             min-height: 0;
             min-width: 0;
+            overflow: hidden;
         }
 
         /* ========== List View (Array) ========== */
@@ -495,15 +497,26 @@
         .list-panel.collapsed .list-panel-body {
             display: none;
         }
-        .list-collapse-indicator {
+
+        .list-expand-tab {
             display: none;
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            z-index: 5;
+            flex-shrink: 0;
+            width: 20px;
+            cursor: pointer;
+            background: var(--bg-elevated);
+            align-items: center;
+            justify-content: center;
+            border-right: 1px solid var(--border);
         }
-        .list-panel.collapsed ~ .list-collapse-indicator {
+        .list-expand-tab:hover {
+            background: var(--bg-hover);
+        }
+        .list-expand-tab svg {
+            width: 12px;
+            height: 12px;
+            color: var(--text-secondary);
+        }
+        .list-view.list-collapsed .list-expand-tab {
             display: flex;
         }
         .list-item {
@@ -1581,7 +1594,7 @@
     function renderListOutput(arr) {
         const area = document.getElementById('output-content-area');
         area.innerHTML = `
-            <div class="list-view">
+            <div class="list-view" id="list-view">
                 <div class="list-panel" id="list-panel">
                     <div class="list-panel-header">
                         <span class="list-title">列表 (${arr.length})</span>
@@ -1592,13 +1605,12 @@
                     <div class="list-panel-body" id="list-panel-body"></div>
                 </div>
                 <div class="list-detail" id="list-detail">
+                    <div class="list-expand-tab" id="list-expand-tab" onclick="toggleListPanel()" title="展开列表">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                    </div>
                     <div class="list-detail-linenos" id="list-detail-linenos"></div>
                     <div class="list-detail-content" id="list-detail-content"></div>
                 </div>
-                <button class="list-panel-toggle list-collapse-indicator" id="list-expand-btn" onclick="toggleListPanel()" title="展开列表"
-                    style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:5;width:22px;height:48px;border:1px solid var(--border);border-left:none;border-radius:0 4px 4px 0;background:var(--bg-elevated);">
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
             </div>`;
 
         const listPanelBody = document.getElementById('list-panel-body');
@@ -1625,8 +1637,9 @@
 
     function toggleListPanel() {
         const panel = document.getElementById('list-panel');
-        const expandBtn = document.getElementById('list-expand-btn');
+        const view = document.getElementById('list-view');
         panel.classList.toggle('collapsed');
+        view.classList.toggle('list-collapsed');
     }
 
     function selectListItem(index, arr) {
