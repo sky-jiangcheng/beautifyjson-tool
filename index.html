@@ -1961,22 +1961,18 @@
         }
 
         const samePairs = [];
-        const used2 = new Set();
-        for (const line in map1) {
-            if (map2[line]) {
-                map1[line].forEach(i => {
-                    let bestJ = -1, bestDist = Infinity;
-                    map2[line].forEach(j => {
-                        if (!used2.has(j)) {
-                            const dist = Math.abs(i - j);
-                            if (dist < bestDist) { bestDist = dist; bestJ = j; }
-                        }
-                    });
-                    if (bestJ >= 0) {
-                        samePairs.push([i, bestJ]);
-                        used2.add(bestJ);
-                    }
-                });
+        const map2Idx = {};
+        for (const line in map2) map2Idx[line] = 0;
+
+        for (let i = 0; i < lines1.length; i++) {
+            const l = lines1[i];
+            const indices = map2[l];
+            if (indices) {
+                const idx = map2Idx[l];
+                if (idx < indices.length) {
+                    samePairs.push([i, indices[idx]]);
+                    map2Idx[l] = idx + 1;
+                }
             }
         }
 
