@@ -577,6 +577,74 @@
             background: transparent !important;
         }
 
+        /* ========== JSON Tree View ========== */
+        .json-tree {
+            padding: 12px 16px;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.65;
+            white-space: nowrap;
+        }
+        .jt-line {
+            display: block;
+            min-height: 21px;
+        }
+        .jt-key {
+            color: #79c0ff;
+        }
+        .jt-string {
+            color: #a5d6ff;
+        }
+        .jt-number {
+            color: #79c0ff;
+        }
+        .jt-bool {
+            color: #ff7b72;
+        }
+        .jt-null {
+            color: #8b949e;
+            font-style: italic;
+        }
+        .jt-bracket {
+            color: #c9d1d9;
+        }
+        .jt-comma {
+            color: #c9d1d9;
+        }
+        .jt-toggle {
+            display: inline-block;
+            width: 16px;
+            cursor: pointer;
+            user-select: none;
+            color: var(--text-muted);
+            font-size: 10px;
+            text-align: center;
+            transition: transform var(--transition-fast);
+        }
+        .jt-toggle:hover {
+            color: var(--text-primary);
+        }
+        .jt-children {
+            padding-left: 20px;
+            border-left: 1px solid rgba(48, 54, 61, 0.5);
+            margin-left: 8px;
+        }
+        .jt-collapsed-summary {
+            display: none;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+        .jt-group.collapsed .jt-collapsed-summary {
+            display: inline;
+        }
+        .jt-group.collapsed .jt-children,
+        .jt-group.collapsed .jt-closing {
+            display: none;
+        }
+        .jt-group.collapsed .jt-toggle {
+            transform: none;
+        }
+
         @media (max-width: 900px) {
             .list-panel { width: 40%; min-width: 120px; }
         }
@@ -1302,6 +1370,7 @@
     window.lastOutputLineCount = 0;
     window.lastParsedJson = null;
     window.listSelectedIndex = 0;
+    window.lastDetailContent = '';
 
     /* ==============================================================
        Utilities
@@ -1559,25 +1628,102 @@
 
     function selectListItem(index, arr) {
         window.listSelectedIndex = index;
+        window.lastDetailContent = JSON.stringify(arr[index], null, 2);
         const items = document.querySelectorAll('.list-item');
         items.forEach((el, i) => el.classList.toggle('active', i === index));
 
         const detailContent = document.getElementById('list-detail-content');
         const detailLinenos = document.getElementById('list-detail-linenos');
-        const formatted = JSON.stringify(arr[index], null, 2);
-        const lines = formatted.split('\n');
 
-        detailLinenos.innerHTML = lines.map((_, i) => `<span>${i + 1}</span>`).join('');
-        detailContent.innerHTML = `<pre><code class="language-json hljs"></code></pre>`;
-        const codeEl = detailContent.querySelector('code');
-        codeEl.textContent = formatted;
-        hljs.highlightElement(codeEl);
+        detailContent.innerHTML = '<div class="json-tree">' + renderJsonNode(null, arr[index]) + '</div>';
+        updateTreeLineNumbers();
 
-        if (detailContent) {
-            detailContent.addEventListener('scroll', () => {
-                detailLinenos.scrollTop = detailContent.scrollTop;
-            }, { once: false });
+        detailContent.addEventListener('scroll', () => {
+            detailLinenos.scrollTop = detailContent.scrollTop;
+        }, { once: false });
+    }
+
+    function renderJsonNode(key, value) {
+        var prefix = key !== null ? '<span class="jt-key">' + JSON.stringify(key) + '</span>: ' : '';
+
+        if (value === null) return '<span class="jt-line">' + prefix + '<span class="jt-null">null</span></span>';
+        if (typeof value === 'boolean') return '<span class="jt-line">' + prefix + '<span class="jt-bool">' + value + '</span></span>';
+        if (typeof value === 'number') return '<span class="jt-line">' + prefix + '<span class="jt-number">' + value + '</span></span>';
+        if (typeof value === 'string') return '<span class="jt-line">' + prefix + '<span class="jt-string">' + JSON.stringify(value) + '</span></span>';
+
+        if (Array.isArray(value)) {
+            var count = value.length;
+            if (count === 0) return '<span class="jt-line">' + prefix + '<span class="jt-bracket">[]</span></span>';
+            var html = '<div class="jt-group">';
+            html += '<span class="jt-line">' + prefix + '<span class="jt-toggle" onclick="toggleJsonNode(this)">&#9660;</span><span class="jt-bracket">[</span><span class="jt-collapsed-summary"> [' + count + ' 项]</span></span>';
+            html += '<div class="jt-children">';
+            for (var i = 0; i < count; i++) {
+                html += renderJsonNode(String(i), value[i]);
+                if (i < count - 1) {
+                    html = html.replace(/<\/span>$/, '<span class="jt-comma">,</span></span>');
+                }
+            }
+            html += '</div>';
+            html += '<span class="jt-line jt-closing"><span class="jt-bracket">]</span></span>';
+            html += '</div>';
+            return html;
         }
+
+        if (typeof value === 'object') {
+            var keys = Object.keys(value);
+            var count = keys.length;
+            if (count === 0) return '<span class="jt-line">' + prefix + '<span class="jt-bracket">{}</span></span>';
+            var html = '<div class="jt-group">';
+            html += '<span class="jt-line">' + prefix + '<span class="jt-toggle" onclick="toggleJsonNode(this)">&#9660;</span><span class="jt-bracket">{</span><span class="jt-collapsed-summary"> {' + count + ' 键}</span></span>';
+            html += '<div class="jt-children">';
+            for (var k = 0; k < count; k++) {
+                html += renderJsonNode(keys[k], value[keys[k]]);
+                if (k < count - 1) {
+                    html = html.replace(/<\/span>$/, '<span class="jt-comma">,</span></span>');
+                }
+            }
+            html += '</div>';
+            html += '<span class="jt-line jt-closing"><span class="jt-bracket">}</span></span>';
+            html += '</div>';
+            return html;
+        }
+
+        return '';
+    }
+
+    function toggleJsonNode(el) {
+        var group = el.closest('.jt-group');
+        if (group) {
+            group.classList.toggle('collapsed');
+            var toggle = group.querySelector('.jt-toggle');
+            toggle.innerHTML = group.classList.contains('collapsed') ? '&#9654;' : '&#9660;';
+            updateTreeLineNumbers();
+        }
+    }
+
+    function updateTreeLineNumbers() {
+        var linenos = document.getElementById('list-detail-linenos');
+        var tree = document.querySelector('.json-tree');
+        if (!linenos || !tree) return;
+        var count = countVisibleLines(tree, true);
+        linenos.innerHTML = '';
+        for (var i = 0; i < count; i++) {
+            var span = document.createElement('span');
+            span.textContent = i + 1;
+            linenos.appendChild(span);
+        }
+    }
+
+    function countVisibleLines(el, skipHidden) {
+        if (!skipHidden && el.offsetParent === null && el.style.display === 'none') return 0;
+        if (el.classList.contains('jt-line') && (skipHidden || el.offsetParent !== null)) {
+            return 1;
+        }
+        var count = 0;
+        for (var i = 0; i < el.children.length; i++) {
+            count += countVisibleLines(el.children[i], false);
+        }
+        return count;
     }
 
     function getItemPreview(item) {
@@ -1609,17 +1755,11 @@
        Copy / Download / Clear
     ============================================================== */
     function copyOutput() {
-        let content = '';
-        const listDetail = document.getElementById('list-detail-content');
-        if (listDetail) {
-            const codeEl = listDetail.querySelector('code');
-            if (codeEl) content = codeEl.textContent;
-        }
-        if (!content && !window.lastFormattedContent) {
+        let content = window.lastDetailContent || window.lastFormattedContent;
+        if (!content) {
             showToast('没有可复制的内容', 2000, 'icon-alert-triangle');
             return;
         }
-        if (!content) content = window.lastFormattedContent;
         navigator.clipboard.writeText(content).then(() => {
             showToast('已复制到剪贴板', 2000, 'icon-check');
         }).catch(() => {
@@ -1652,6 +1792,7 @@
         document.getElementById('input').value = '';
         window.lastFormattedContent = '';
         window.lastParsedJson = null;
+        window.lastDetailContent = '';
         clearNotifications();
         renderOutput('', 'empty');
         document.getElementById('input-size').textContent = '';
