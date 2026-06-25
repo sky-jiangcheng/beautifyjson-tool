@@ -4,11 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JSON 格式化工具</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css" id="hljs-dark">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css" id="hljs-light" disabled>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
         /* ========== CSS Variables ========== */
-        :root {
+        :root,
+        [data-theme="dark"] {
             --bg-primary: #0d1117;
             --bg-secondary: #0b0f14;
             --bg-surface: #161b22;
@@ -45,6 +47,40 @@
             --shadow-glow: 0 0 0 1px rgba(88, 166, 255, 0.15);
             --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             --transition-fast: 0.12s ease;
+            color-scheme: dark;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f6f8fa;
+            --bg-surface: #f6f8fa;
+            --bg-elevated: #ffffff;
+            --bg-hover: #eaeef2;
+            --bg-input: #ffffff;
+            --border: #d0d7de;
+            --border-light: #d8dee4;
+            --border-focus: #0969da;
+            --text-primary: #1f2328;
+            --text-secondary: #656d76;
+            --text-muted: #8c959f;
+            --accent: #0969da;
+            --accent-hover: #0550ae;
+            --accent-subtle: rgba(9, 105, 218, 0.08);
+            --green: #1a7f37;
+            --green-bg: rgba(26, 127, 55, 0.08);
+            --green-border: rgba(26, 127, 55, 0.2);
+            --red: #cf222e;
+            --red-bg: rgba(207, 34, 46, 0.08);
+            --red-border: rgba(207, 34, 46, 0.2);
+            --yellow: #9a6700;
+            --yellow-bg: rgba(154, 103, 0, 0.08);
+            --orange: #bc4c00;
+            --purple: #8250df;
+            --shadow-sm: 0 1px 2px rgba(31,35,40,0.08);
+            --shadow: 0 4px 12px rgba(31,35,40,0.12);
+            --shadow-lg: 0 12px 40px rgba(31,35,40,0.15);
+            --shadow-glow: 0 0 0 1px rgba(9, 105, 218, 0.12);
+            color-scheme: light;
         }
 
         /* ========== Reset & Base ========== */
@@ -1201,6 +1237,16 @@
             <polyline points="7 23 3 19 7 15"/>
             <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
         </symbol>
+        <symbol id="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </symbol>
+        <symbol id="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </symbol>
     </svg>
 
     <!-- ========== Header & Toolbar ========== -->
@@ -1210,6 +1256,10 @@
             <span>JSON 格式化工具</span>
         </div>
         <div class="toolbar">
+            <button class="btn" onclick="toggleTheme()" id="theme-btn" title="切换暗色/亮色模式">
+                <svg class="svg-icon" id="theme-icon"><use href="#icon-sun"/></svg>
+            </button>
+            <div class="sep"></div>
             <button class="btn btn-primary" onclick="formatJSON()" title="格式化 JSON (Ctrl+Enter)">
                 <svg class="svg-icon"><use href="#icon-code"/></svg>
                 格式化 <span class="shortcut">^&#9166;</span>
@@ -2198,9 +2248,36 @@
     }
 
     /* ==============================================================
+       Theme
+    ============================================================== */
+    function getTheme() {
+        return localStorage.getItem('theme') || 'dark';
+    }
+
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        var icon = document.getElementById('theme-icon');
+        if (icon) icon.querySelector('use').setAttribute('href', theme === 'light' ? '#icon-moon' : '#icon-sun');
+        var d = document.getElementById('hljs-dark');
+        var l = document.getElementById('hljs-light');
+        if (d) d.disabled = theme === 'light';
+        if (l) l.disabled = theme === 'dark';
+        localStorage.setItem('theme', theme);
+    }
+
+    function toggleTheme() {
+        applyTheme(getTheme() === 'dark' ? 'light' : 'dark');
+    }
+
+    (function() {
+        document.documentElement.setAttribute('data-theme', getTheme());
+    })();
+
+    /* ==============================================================
        Init
     ============================================================== */
     window.addEventListener('DOMContentLoaded', () => {
+        applyTheme(getTheme());
         renderHistory();
         initDragDrop();
         initKeyboard();
