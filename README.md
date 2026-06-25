@@ -65,10 +65,9 @@ macOS 上使用 `Cmd` 替代 `Ctrl`。
 ```bash
 # 本地开发
 python3 -m http.server 8000
-
-# GitHub Pages
-# 在仓库 Settings > Pages 中启用，选择 main 分支
 ```
+
+已部署于 GitHub Pages: https://sky-jiangcheng.github.io/beautifyjson/
 
 ## 文件结构
 
