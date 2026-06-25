@@ -229,7 +229,7 @@
             min-width: 0;
         }
 
-        .panel-left { border-right: 2px solid var(--border); }
+        .panel-left { border-right: 2px solid var(--border); flex: 0.54; }
 
         .panel-header {
             display: flex;
@@ -301,9 +301,10 @@
         .output-wrap {
             width: 100%;
             height: 100%;
-            overflow: auto;
+            overflow: hidden;
             background: var(--bg-primary);
             display: flex;
+            flex-direction: column;
         }
 
         .output-linenos {
@@ -386,6 +387,139 @@
             color: var(--yellow);
             font-size: 11.5px;
             font-family: var(--font-sans);
+        }
+
+        /* ========== Output Notifications ========== */
+        .output-notifications {
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+        .output-notifications:empty {
+            display: none;
+        }
+        .output-notification {
+            padding: 6px 14px;
+            font-size: 12px;
+            line-height: 1.5;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-family: var(--font-sans);
+        }
+        .output-notification.error {
+            background: var(--red-bg);
+            color: var(--red);
+            border-left: 3px solid var(--red);
+        }
+        .output-notification.warning {
+            background: var(--yellow-bg);
+            color: var(--yellow);
+            border-left: 3px solid var(--yellow);
+        }
+
+        .output-content-area {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            min-height: 0;
+        }
+
+        /* ========== List View (Array) ========== */
+        .list-view {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            min-width: 0;
+        }
+        .list-panel {
+            width: 240px;
+            min-width: 160px;
+            border-right: 1px solid var(--border);
+            overflow-y: auto;
+            flex-shrink: 0;
+            background: var(--bg-secondary);
+        }
+        .list-item {
+            display: flex;
+            flex-direction: column;
+            padding: 7px 12px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(48, 54, 61, 0.4);
+            transition: all var(--transition-fast);
+            border-left: 2px solid transparent;
+            user-select: none;
+        }
+        .list-item:hover {
+            background: var(--bg-hover);
+        }
+        .list-item.active {
+            background: var(--accent-subtle);
+            border-left-color: var(--accent);
+        }
+        .list-item-index {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 2px;
+        }
+        .list-item-preview {
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .list-detail {
+            flex: 1;
+            min-width: 0;
+            overflow: auto;
+            background: var(--bg-primary);
+            display: flex;
+        }
+        .list-detail-linenos {
+            flex-shrink: 0;
+            padding: 12px 0;
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border-light);
+            user-select: none;
+            overflow: hidden;
+            text-align: right;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.65;
+            color: var(--text-muted);
+            min-width: 48px;
+        }
+        .list-detail-linenos span {
+            display: block;
+            padding: 0 12px 0 8px;
+        }
+        .list-detail-content {
+            flex: 1;
+            min-width: 0;
+            overflow: auto;
+        }
+        .list-detail-content pre {
+            margin: 0;
+            padding: 12px 16px;
+            background: transparent !important;
+        }
+        .list-detail-content code {
+            font-family: var(--font-mono) !important;
+            font-size: 13px !important;
+            line-height: 1.65 !important;
+            background: transparent !important;
+        }
+
+        @media (max-width: 900px) {
+            .list-panel { width: 40%; min-width: 120px; }
+        }
+        @media (max-width: 600px) {
+            .list-panel { width: 45%; min-width: 100px; }
+            .list-item { padding: 5px 8px; }
+            .list-item-index, .list-item-preview { font-size: 10px; }
         }
 
         /* ========== Drag & Drop Overlay ========== */
@@ -993,10 +1127,14 @@
                 </div>
                 <div class="panel-body">
                     <div class="output-wrap" id="output-wrap">
-                        <div class="output-placeholder">
-                            <svg class="svg-icon" viewBox="0 0 24 24"><use href="#icon-braces"/></svg>
-                            格式化后的 JSON 将显示在这里
+                        <div class="output-notifications" id="output-notifications"></div>
+                        <div class="output-content-area" id="output-content-area">
+                            <div class="output-placeholder" id="output-placeholder">
+                                <svg class="svg-icon" viewBox="0 0 24 24"><use href="#icon-braces"/></svg>
+                                格式化后的 JSON 将显示在这里
+                            </div>
                         </div>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -1098,6 +1236,8 @@
     window.compareOrder = [0, 1];
     window.lastFormattedContent = '';
     window.lastOutputLineCount = 0;
+    window.lastParsedJson = null;
+    window.listSelectedIndex = 0;
 
     /* ==============================================================
        Utilities
@@ -1138,13 +1278,13 @@
        Output Line Numbers
     ============================================================== */
     function renderLineNumbers(lineCount) {
-        const wrap = document.getElementById('output-wrap');
-        let linenos = wrap.querySelector('.output-linenos');
+        const area = document.getElementById('output-content-area');
+        let linenos = area.querySelector('.output-linenos');
         if (lineCount > 0) {
             if (!linenos) {
                 linenos = document.createElement('div');
                 linenos.className = 'output-linenos';
-                wrap.insertBefore(linenos, wrap.firstChild);
+                area.insertBefore(linenos, area.firstChild);
             }
             linenos.innerHTML = Array.from({length: lineCount}, (_, i) => `<span>${i + 1}</span>`).join('');
             window.lastOutputLineCount = lineCount;
@@ -1155,9 +1295,9 @@
     }
 
     function syncLineNumberScroll() {
-        const wrap = document.getElementById('output-wrap');
-        const content = wrap.querySelector('.output-content');
-        const linenos = wrap.querySelector('.output-linenos');
+        const area = document.getElementById('output-content-area');
+        const content = area.querySelector('.output-content');
+        const linenos = area.querySelector('.output-linenos');
         if (content && linenos) {
             linenos.scrollTop = content.scrollTop;
         }
@@ -1181,6 +1321,7 @@
     function formatJSON() {
         const input = document.getElementById('input');
         const value = input.value.trim();
+        clearNotifications();
         if (!value) {
             renderOutput('', 'empty');
             setStatus('输入为空');
@@ -1198,19 +1339,20 @@
                     jsonObj = JSON.parse(fixResult.json);
                     fixed = true;
                 } catch (e2) {
-                    renderOutput('错误：无效的 JSON 格式\n' + error.message, 'error');
+                    showNotification('error', '无效的 JSON 格式：' + error.message);
                     setStatus('JSON 格式错误');
                     return;
                 }
             } else {
-                renderOutput('错误：无效的 JSON 格式\n' + error.message, 'error');
+                showNotification('error', '无效的 JSON 格式：' + error.message);
                 setStatus('JSON 格式错误');
                 return;
             }
         }
 
         window.lastFormattedContent = JSON.stringify(jsonObj, null, 2);
-        renderOutput(window.lastFormattedContent, 'json', fixed);
+        window.lastParsedJson = jsonObj;
+        renderOutput(window.lastFormattedContent, 'json', fixed, jsonObj);
         setStatus('格式化成功' + (fixed ? '（已自动补全括号）' : ''));
         updateOutputStatus(window.lastFormattedContent);
     }
@@ -1218,6 +1360,7 @@
     function minifyJSON() {
         const input = document.getElementById('input');
         const value = input.value.trim();
+        clearNotifications();
         if (!value) {
             showToast('请先输入 JSON', 2000, 'icon-alert-triangle');
             return;
@@ -1226,11 +1369,12 @@
         try {
             const obj = JSON.parse(value);
             window.lastFormattedContent = JSON.stringify(obj);
-            renderOutput(window.lastFormattedContent, 'json');
+            window.lastParsedJson = obj;
+            renderOutput(window.lastFormattedContent, 'json', false, obj);
             setStatus('压缩成功');
             updateOutputStatus(window.lastFormattedContent);
         } catch (error) {
-            renderOutput('错误：无效的 JSON 格式\n' + error.message, 'error');
+            showNotification('error', '无效的 JSON 格式：' + error.message);
             setStatus('JSON 格式错误');
         }
     }
@@ -1238,48 +1382,137 @@
     /* ==============================================================
        Output Rendering
     ============================================================== */
-    function renderOutput(content, type, fixed) {
-        const wrap = document.getElementById('output-wrap');
-        wrap.innerHTML = '';
+    function clearNotifications() {
+        document.getElementById('output-notifications').innerHTML = '';
+    }
 
+    function showNotification(type, message) {
+        const container = document.getElementById('output-notifications');
+        const div = document.createElement('div');
+        div.className = 'output-notification ' + type;
+        div.textContent = message;
+        container.appendChild(div);
+    }
+
+    function renderEmptyContent() {
+        const area = document.getElementById('output-content-area');
+        area.innerHTML = `
+            <div class="output-placeholder" id="output-placeholder">
+                <svg class="svg-icon" viewBox="0 0 24 24"><use href="#icon-braces"/></svg>
+                格式化后的 JSON 将显示在这里
+            </div>`;
+        renderLineNumbers(0);
+    }
+
+    function renderOutput(content, type, fixed, parsedObj) {
         if (type === 'empty') {
-            renderLineNumbers(0);
-            wrap.innerHTML = `
-                <div class="output-placeholder">
-                    <svg class="svg-icon" viewBox="0 0 24 24"><use href="#icon-braces"/></svg>
-                    格式化后的 JSON 将显示在这里
-                </div>`;
+            renderEmptyContent();
             return;
         }
 
-        if (type === 'error') {
-            renderLineNumbers(0);
-            wrap.innerHTML = `<div class="output-error">${escapeHtml(content)}</div>`;
-            return;
+        if (type === 'json') {
+            if (parsedObj && Array.isArray(parsedObj)) {
+                renderListOutput(parsedObj);
+            } else {
+                renderRegularOutput(content);
+            }
+            if (fixed) {
+                showNotification('warning', '原始 JSON 缺失部分括号，已自动补全');
+            }
         }
+    }
 
+    function renderRegularOutput(content) {
+        const area = document.getElementById('output-content-area');
         const lineCount = content.split('\n').length;
 
         let html = '<div class="output-content"><pre><code class="language-json hljs"></code></pre></div>';
-        wrap.innerHTML = html;
+        area.innerHTML = html;
 
-        const codeEl = wrap.querySelector('code');
+        const codeEl = area.querySelector('code');
         codeEl.textContent = content;
         hljs.highlightElement(codeEl);
 
         renderLineNumbers(lineCount);
 
-        const contentEl = wrap.querySelector('.output-content');
+        const contentEl = area.querySelector('.output-content');
         if (contentEl) {
             contentEl.addEventListener('scroll', syncLineNumberScroll, { once: false });
         }
+    }
 
-        if (fixed) {
-            const warning = document.createElement('div');
-            warning.className = 'output-warning';
-            warning.textContent = '原始 JSON 缺失部分括号，已自动补全';
-            wrap.appendChild(warning);
+    function renderListOutput(arr) {
+        const area = document.getElementById('output-content-area');
+        area.innerHTML = `
+            <div class="list-view">
+                <div class="list-panel" id="list-panel"></div>
+                <div class="list-detail" id="list-detail">
+                    <div class="list-detail-linenos" id="list-detail-linenos"></div>
+                    <div class="list-detail-content" id="list-detail-content"></div>
+                </div>
+            </div>`;
+
+        const listPanel = document.getElementById('list-panel');
+
+        if (arr.length === 0) {
+            listPanel.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px;text-align:center">空数组</div>';
+            return;
         }
+
+        arr.forEach((item, i) => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.innerHTML = `
+                <span class="list-item-index">[${i}]</span>
+                <span class="list-item-preview">${escapeHtml(getItemPreview(item))}</span>`;
+            div.addEventListener('click', () => selectListItem(i, arr));
+            listPanel.appendChild(div);
+        });
+
+        window.listSelectedIndex = 0;
+        selectListItem(0, arr);
+    }
+
+    function selectListItem(index, arr) {
+        window.listSelectedIndex = index;
+        const items = document.querySelectorAll('.list-item');
+        items.forEach((el, i) => el.classList.toggle('active', i === index));
+
+        const detailContent = document.getElementById('list-detail-content');
+        const detailLinenos = document.getElementById('list-detail-linenos');
+        const formatted = JSON.stringify(arr[index], null, 2);
+        const lines = formatted.split('\n');
+
+        detailLinenos.innerHTML = lines.map((_, i) => `<span>${i + 1}</span>`).join('');
+        detailContent.innerHTML = `<pre><code class="language-json hljs"></code></pre>`;
+        const codeEl = detailContent.querySelector('code');
+        codeEl.textContent = formatted;
+        hljs.highlightElement(codeEl);
+
+        if (detailContent) {
+            detailContent.addEventListener('scroll', () => {
+                detailLinenos.scrollTop = detailContent.scrollTop;
+            }, { once: false });
+        }
+    }
+
+    function getItemPreview(item) {
+        if (item === null) return 'null';
+        if (item === undefined) return 'undefined';
+        if (typeof item === 'boolean') return String(item);
+        if (typeof item === 'number') return String(item);
+        if (typeof item === 'string') {
+            return item.length > 50 ? '"' + item.substring(0, 50) + '..."' : JSON.stringify(item);
+        }
+        if (Array.isArray(item)) {
+            return '[...] (' + item.length + ' 项)';
+        }
+        if (typeof item === 'object') {
+            const keys = Object.keys(item);
+            const preview = keys.slice(0, 2).join(', ');
+            return '{' + preview + (keys.length > 2 ? ', ...' : '') + '} (' + keys.length + ' 键)';
+        }
+        return String(item);
     }
 
     function updateOutputStatus(content) {
@@ -1292,15 +1525,22 @@
        Copy / Download / Clear
     ============================================================== */
     function copyOutput() {
-        if (!window.lastFormattedContent) {
+        let content = '';
+        const listDetail = document.getElementById('list-detail-content');
+        if (listDetail) {
+            const codeEl = listDetail.querySelector('code');
+            if (codeEl) content = codeEl.textContent;
+        }
+        if (!content && !window.lastFormattedContent) {
             showToast('没有可复制的内容', 2000, 'icon-alert-triangle');
             return;
         }
-        navigator.clipboard.writeText(window.lastFormattedContent).then(() => {
+        if (!content) content = window.lastFormattedContent;
+        navigator.clipboard.writeText(content).then(() => {
             showToast('已复制到剪贴板', 2000, 'icon-check');
         }).catch(() => {
             const ta = document.createElement('textarea');
-            ta.value = window.lastFormattedContent;
+            ta.value = content;
             document.body.appendChild(ta);
             ta.select();
             document.execCommand('copy');
@@ -1327,6 +1567,8 @@
     function clearContent() {
         document.getElementById('input').value = '';
         window.lastFormattedContent = '';
+        window.lastParsedJson = null;
+        clearNotifications();
         renderOutput('', 'empty');
         document.getElementById('input-size').textContent = '';
         document.getElementById('output-status').textContent = '';
@@ -1337,7 +1579,7 @@
        History
     ============================================================== */
     function saveHistory() {
-        if (!window.lastFormattedContent || window.lastFormattedContent.startsWith('错误')) {
+        if (!window.lastFormattedContent) {
             showToast('请先格式化有效的 JSON', 2000, 'icon-alert-triangle');
             return;
         }
