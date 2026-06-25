@@ -1941,64 +1941,11 @@
         ];
         if (!items[0] || !items[1]) return;
 
-        let content1 = '', content2 = '';
-        try { content1 = JSON.stringify(JSON.parse(items[0].content), null, 2); } catch { content1 = items[0].content; }
-        try { content2 = JSON.stringify(JSON.parse(items[1].content), null, 2); } catch { content2 = items[1].content; }
-
-        const lines1 = content1.split(/\r?\n/);
-        const lines2 = content2.split(/\r?\n/);
-
-        const map1 = {}, map2 = {};
-        for (let i = 0; i < lines1.length; i++) {
-            const l = lines1[i];
-            if (!map1[l]) map1[l] = [];
-            map1[l].push(i);
-        }
-        for (let i = 0; i < lines2.length; i++) {
-            const l = lines2[i];
-            if (!map2[l]) map2[l] = [];
-            map2[l].push(i);
-        }
-
-        const samePairs = [];
-        const map2Idx = {};
-        for (const line in map2) map2Idx[line] = 0;
-
-        for (let i = 0; i < lines1.length; i++) {
-            const l = lines1[i];
-            const indices = map2[l];
-            if (indices) {
-                const idx = map2Idx[l];
-                if (idx < indices.length) {
-                    samePairs.push([i, indices[idx]]);
-                    map2Idx[l] = idx + 1;
-                }
-            }
-        }
-
-        const same1 = new Set(samePairs.map(p => p[0]));
-        const same2 = new Set(samePairs.map(p => p[1]));
-
-        let html1 = '';
-        for (let i = 0; i < lines1.length; i++) {
-            const cls = same1.has(i) ? 'same' : 'diff';
-            html1 += `<div class="compare-line ${cls}" data-line1="${i}"><span class="compare-line-num">${i + 1}</span><span class="compare-line-text">${escapeHtml(lines1[i])}</span></div>`;
-        }
-
-        let html2 = '';
-        for (let i = 0; i < lines2.length; i++) {
-            const cls = same2.has(i) ? 'same' : 'diff';
-            html2 += `<div class="compare-line ${cls}" data-line2="${i}"><span class="compare-line-num">${i + 1}</span><span class="compare-line-text">${escapeHtml(lines2[i])}</span></div>`;
-        }
-
         document.getElementById('compare-left-title').textContent = items[0].name;
         document.getElementById('compare-right-title').textContent = items[1].name;
-        document.getElementById('compare-left-content').innerHTML = html1;
-        document.getElementById('compare-right-content').innerHTML = html2;
-
+        document.getElementById('compare-left-content').innerHTML = '<div style="padding:16px;color:var(--text-muted);text-align:center">正在比对…</div>';
+        document.getElementById('compare-right-content').innerHTML = '<div style="padding:16px;color:var(--text-muted);text-align:center">正在比对…</div>';
         document.getElementById('compare-container').classList.add('active');
-
-        requestAnimationFrame(() => drawCompareCurves(samePairs));
 
         const leftScroll = document.getElementById('compare-left-content');
         const rightScroll = document.getElementById('compare-right-content');
@@ -2014,6 +1961,57 @@
             syncing = true;
             leftScroll.scrollTop = rightScroll.scrollTop;
             requestAnimationFrame(() => { syncing = false; });
+        });
+
+        requestAnimationFrame(() => {
+            let content1 = '', content2 = '';
+            try { content1 = JSON.stringify(JSON.parse(items[0].content), null, 2); } catch { content1 = items[0].content; }
+            try { content2 = JSON.stringify(JSON.parse(items[1].content), null, 2); } catch { content2 = items[1].content; }
+
+            const lines1 = content1.split(/\r?\n/);
+            const lines2 = content2.split(/\r?\n/);
+
+            const map2 = {};
+            for (let i = 0; i < lines2.length; i++) {
+                const l = lines2[i];
+                if (!map2[l]) map2[l] = [];
+                map2[l].push(i);
+            }
+
+            const samePairs = [];
+            const map2Idx = {};
+            for (const line in map2) map2Idx[line] = 0;
+
+            const same1 = new Set();
+            for (let i = 0; i < lines1.length; i++) {
+                const l = lines1[i];
+                const indices = map2[l];
+                if (indices) {
+                    const idx = map2Idx[l];
+                    if (idx < indices.length) {
+                        samePairs.push([i, indices[idx]]);
+                        same1.add(i);
+                        map2Idx[l] = idx + 1;
+                    }
+                }
+            }
+            const same2 = new Set(samePairs.map(p => p[1]));
+
+            let html1 = '';
+            for (let i = 0; i < lines1.length; i++) {
+                const cls = same1.has(i) ? 'same' : 'diff';
+                html1 += `<div class="compare-line ${cls}" data-line1="${i}"><span class="compare-line-num">${i + 1}</span><span class="compare-line-text">${escapeHtml(lines1[i])}</span></div>`;
+            }
+            let html2 = '';
+            for (let i = 0; i < lines2.length; i++) {
+                const cls = same2.has(i) ? 'same' : 'diff';
+                html2 += `<div class="compare-line ${cls}" data-line2="${i}"><span class="compare-line-num">${i + 1}</span><span class="compare-line-text">${escapeHtml(lines2[i])}</span></div>`;
+            }
+
+            document.getElementById('compare-left-content').innerHTML = html1;
+            document.getElementById('compare-right-content').innerHTML = html2;
+
+            requestAnimationFrame(() => drawCompareCurves(samePairs));
         });
     }
 
