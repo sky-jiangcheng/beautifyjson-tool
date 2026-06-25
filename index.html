@@ -1592,7 +1592,7 @@
                     <div class="list-detail-content" id="list-detail-content"></div>
                 </div>
                 <button class="list-panel-toggle list-collapse-indicator" id="list-expand-btn" onclick="toggleListPanel()" title="展开列表"
-                    style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:5;width:22px;height:48px;border:1px solid var(--border);border-left:none;border-radius:0 4px 4px 0;background:var(--bg-elevated);display:none;">
+                    style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:5;width:22px;height:48px;border:1px solid var(--border);border-left:none;border-radius:0 4px 4px 0;background:var(--bg-elevated);">
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
             </div>`;
@@ -1622,8 +1622,7 @@
     function toggleListPanel() {
         const panel = document.getElementById('list-panel');
         const expandBtn = document.getElementById('list-expand-btn');
-        const collapsed = panel.classList.toggle('collapsed');
-        expandBtn.style.display = collapsed ? 'flex' : 'none';
+        panel.classList.toggle('collapsed');
     }
 
     function selectListItem(index, arr) {
