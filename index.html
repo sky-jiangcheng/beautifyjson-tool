@@ -429,14 +429,78 @@
             flex: 1;
             min-height: 0;
             min-width: 0;
+            position: relative;
         }
         .list-panel {
             width: 240px;
             min-width: 160px;
             border-right: 1px solid var(--border);
-            overflow-y: auto;
+            overflow: hidden;
             flex-shrink: 0;
             background: var(--bg-secondary);
+            display: flex;
+            flex-direction: column;
+            transition: width var(--transition), min-width var(--transition), border-color var(--transition);
+        }
+        .list-panel.collapsed {
+            width: 0;
+            min-width: 0;
+            border-right-color: transparent;
+        }
+        .list-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 10px;
+            height: 30px;
+            border-bottom: 1px solid var(--border-light);
+            flex-shrink: 0;
+        }
+        .list-panel-header .list-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+        .list-panel-toggle {
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 12px;
+            border-radius: 4px;
+            transition: all var(--transition-fast);
+            flex-shrink: 0;
+        }
+        .list-panel-toggle:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+        .list-panel-body {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .list-panel.collapsed .list-panel-header,
+        .list-panel.collapsed .list-panel-body {
+            display: none;
+        }
+        .list-collapse-indicator {
+            display: none;
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 5;
+        }
+        .list-panel.collapsed ~ .list-collapse-indicator {
+            display: flex;
         }
         .list-item {
             display: flex;
@@ -1445,17 +1509,30 @@
         const area = document.getElementById('output-content-area');
         area.innerHTML = `
             <div class="list-view">
-                <div class="list-panel" id="list-panel"></div>
+                <div class="list-panel" id="list-panel">
+                    <div class="list-panel-header">
+                        <span class="list-title">列表 (${arr.length})</span>
+                        <button class="list-panel-toggle" id="list-panel-toggle" onclick="toggleListPanel()" title="收起列表">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                        </button>
+                    </div>
+                    <div class="list-panel-body" id="list-panel-body"></div>
+                </div>
                 <div class="list-detail" id="list-detail">
                     <div class="list-detail-linenos" id="list-detail-linenos"></div>
                     <div class="list-detail-content" id="list-detail-content"></div>
                 </div>
+                <button class="list-panel-toggle list-collapse-indicator" id="list-expand-btn" onclick="toggleListPanel()" title="展开列表"
+                    style="position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:5;width:22px;height:48px;border:1px solid var(--border);border-left:none;border-radius:0 4px 4px 0;background:var(--bg-elevated);display:none;">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
             </div>`;
 
-        const listPanel = document.getElementById('list-panel');
+        const listPanelBody = document.getElementById('list-panel-body');
+        window._listArr = arr;
 
         if (arr.length === 0) {
-            listPanel.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px;text-align:center">空数组</div>';
+            listPanelBody.innerHTML = '<div style="padding:16px;color:var(--text-muted);font-size:12px;text-align:center">空数组</div>';
             return;
         }
 
@@ -1466,11 +1543,18 @@
                 <span class="list-item-index">[${i}]</span>
                 <span class="list-item-preview">${escapeHtml(getItemPreview(item))}</span>`;
             div.addEventListener('click', () => selectListItem(i, arr));
-            listPanel.appendChild(div);
+            listPanelBody.appendChild(div);
         });
 
         window.listSelectedIndex = 0;
         selectListItem(0, arr);
+    }
+
+    function toggleListPanel() {
+        const panel = document.getElementById('list-panel');
+        const expandBtn = document.getElementById('list-expand-btn');
+        const collapsed = panel.classList.toggle('collapsed');
+        expandBtn.style.display = collapsed ? 'flex' : 'none';
     }
 
     function selectListItem(index, arr) {
