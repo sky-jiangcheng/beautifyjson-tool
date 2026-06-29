@@ -1,11 +1,12 @@
-const CACHE_NAME = 'json-formatter-v3';
+const CACHE_NAME = 'json-formatter-v4';
 const urlsToCache = [
   '/beautifyjson/',
   '/beautifyjson/index.html',
   '/beautifyjson/manifest.json',
   '/beautifyjson/icon.svg',
   '/beautifyjson/icon-192.png',
-  '/beautifyjson/icon-512.png'
+  '/beautifyjson/icon-512.png',
+  '/beautifyjson/favicon-32.png'
 ];
 
 self.addEventListener('install', event => {
