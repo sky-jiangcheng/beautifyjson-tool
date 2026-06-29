@@ -2,7 +2,7 @@
 
 一个现代化的 JSON 格式化与对比工具，纯前端单文件实现，无需后端。
 
-**在线使用**: https://sky-jiangcheng.github.io/beautifyjson/
+**在线使用**: https://sky-jiangcheng.github.io/jsonbeautify/
 
 ## 功能
 
@@ -67,7 +67,7 @@ macOS 上使用 `Cmd` 替代 `Ctrl`。
 python3 -m http.server 8000
 ```
 
-已部署于 GitHub Pages: https://sky-jiangcheng.github.io/beautifyjson/
+已部署于 GitHub Pages: https://sky-jiangcheng.github.io/jsonbeautify/
 
 ## 文件结构
 
