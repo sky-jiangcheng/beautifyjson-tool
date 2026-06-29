@@ -1591,31 +1591,27 @@
 
     function onIndentChange() {
         const input = document.getElementById('input');
-        if (!input.value.trim()) return;
-        try {
-            const obj = JSON.parse(input.value);
-            const indent = getIndent();
-            const formatted = JSON.stringify(obj, null, indent);
-            window.lastFormattedContent = formatted;
-            window.lastParsedJson = obj;
-            renderOutput(formatted, 'json', false, obj);
-            updateOutputStatus(formatted);
-            setStatus('格式化成功');
-        } catch (e) {
-            const fixResult = tryFixJson(input.value);
-            if (fixResult.success) {
-                try {
-                    const obj = JSON.parse(fixResult.json);
-                    const indent = getIndent();
-                    const formatted = JSON.stringify(obj, null, indent);
-                    window.lastFormattedContent = formatted;
-                    window.lastParsedJson = obj;
-                    renderOutput(formatted, 'json', true, obj);
-                    updateOutputStatus(formatted);
-                    setStatus('格式化成功（已自动补全括号）');
-                } catch (e2) {}
+        let obj = window.lastParsedJson;
+        if (!obj) {
+            const value = input.value.trim();
+            if (!value) return;
+            try {
+                obj = JSON.parse(value);
+            } catch (e) {
+                const fixResult = tryFixJson(value);
+                if (fixResult.success) {
+                    try { obj = JSON.parse(fixResult.json); } catch (e2) { return; }
+                } else {
+                    return;
+                }
             }
         }
+        const indent = getIndent();
+        const formatted = JSON.stringify(obj, null, indent);
+        window.lastFormattedContent = formatted;
+        renderOutput(formatted, 'json', false, obj);
+        updateOutputStatus(formatted);
+        setStatus('格式化成功');
     }
 
     function formatJSON() {
@@ -1691,7 +1687,7 @@
 
         window.lastFormattedContent = JSON.stringify(jsonObj);
         window.lastParsedJson = jsonObj;
-        renderOutput(window.lastFormattedContent, 'json', fixed, jsonObj);
+        renderOutput(window.lastFormattedContent, 'text', fixed, jsonObj);
         setStatus('压缩成功' + (fixed ? '（已自动补全括号）' : ''));
         updateOutputStatus(window.lastFormattedContent);
     }
@@ -1721,9 +1717,27 @@
         renderLineNumbers(0);
     }
 
+    function renderTextOutput(content) {
+        const area = document.getElementById('output-content-area');
+        area.innerHTML = '<div class="output-content"><pre><code class="language-json hljs"></code></pre></div>';
+        const lineCount = content.split('\n').length;
+        renderLineNumbers(lineCount);
+        const codeEl = area.querySelector('code');
+        if (codeEl) { codeEl.textContent = content; hljs.highlightElement(codeEl); }
+        const contentEl = area.querySelector('.output-content');
+        if (contentEl) {
+            contentEl.addEventListener('scroll', syncLineNumberScroll, { once: false });
+        }
+    }
+
     function renderOutput(content, type, fixed, parsedObj) {
         if (type === 'empty') {
             renderEmptyContent();
+            return;
+        }
+
+        if (type === 'text') {
+            renderTextOutput(content);
             return;
         }
 
@@ -2043,7 +2057,7 @@
         const result = JSON.stringify(JSON.stringify(jsonObj));
         window.lastFormattedContent = result;
         window.lastParsedJson = jsonObj;
-        renderOutput(result, 'json', false, result);
+        renderOutput(result, 'text', false, result);
         setStatus('JSON 转义成功' + (fixed ? '（已自动补全括号）' : ''));
         updateOutputStatus(result);
     }
