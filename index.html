@@ -243,6 +243,64 @@
 
         .btn .svg-icon { color: currentColor; }
 
+        /* ========== Indent Select ========== */
+        .indent-select {
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2px 14px 2px 5px;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            cursor: pointer;
+            height: 28px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='4'%3E%3Cpath d='M0 0l3 4 3-4z' fill='%238b949e'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 4px center;
+        }
+        .indent-select:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+        .indent-select:focus {
+            outline: none;
+            border-color: var(--border-focus);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* ========== Validation Indicator ========== */
+        .validation-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            padding: 1px 6px;
+            border-radius: 3px;
+            margin-left: 4px;
+        }
+        .validation-indicator.valid {
+            color: var(--green);
+        }
+        .validation-indicator.invalid {
+            color: var(--red);
+        }
+        .validation-indicator .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .validation-indicator.valid .dot {
+            background: var(--green);
+        }
+        .validation-indicator.invalid .dot {
+            background: var(--red);
+        }
+
         /* ========== Main Layout ========== */
         .main-layout {
             display: flex;
@@ -1268,8 +1326,16 @@
                 <svg class="svg-icon"><use href="#icon-code"/></svg>
                 格式化 <span class="shortcut">^&#9166;</span>
             </button>
+            <select class="indent-select" id="indent-select" title="缩进选项">
+                <option value="2">2</option>
+                <option value="4">4</option>
+                <option value="tab">Tab</option>
+            </select>
             <button class="btn" onclick="minifyJSON()" title="压缩 JSON">
                 压缩
+            </button>
+            <button class="btn" onclick="stringifyJSON()" title="JSON 转义">
+                转义
             </button>
             <div class="sep"></div>
             <button class="btn" onclick="copyOutput()" title="复制结果">
@@ -1279,6 +1345,10 @@
             <button class="btn" onclick="downloadJSON()" title="下载 JSON 文件 (Ctrl+D)">
                 <svg class="svg-icon"><use href="#icon-download"/></svg>
                 下载 <span class="shortcut">^D</span>
+            </button>
+            <button class="btn" onclick="uploadFile()" title="上传 JSON 文件">
+                <svg class="svg-icon"><use href="#icon-folder-open"/></svg>
+                上传
             </button>
             <div class="sep"></div>
             <button class="btn" onclick="saveHistory()" title="保存到历史 (Ctrl+S)">
@@ -1301,6 +1371,7 @@
                         <svg class="svg-icon-xs" viewBox="0 0 24 24"><use href="#icon-file-text"/></svg>
                         输入
                     </span>
+                    <span class="validation-indicator" id="validation-indicator" style="display:none"></span>
                     <span id="input-size" style="font-weight:400;text-transform:none;letter-spacing:0;font-family:var(--font-mono)"></span>
                 </div>
                 <div class="panel-body" id="input-body">
@@ -1511,6 +1582,12 @@
         return { success: ok, json: fixed };
     }
 
+    function getIndent() {
+        const v = document.getElementById('indent-select').value;
+        if (v === 'tab') return '\t';
+        return parseInt(v);
+    }
+
     function formatJSON() {
         const input = document.getElementById('input');
         const value = input.value.trim();
@@ -1543,7 +1620,8 @@
             }
         }
 
-        window.lastFormattedContent = JSON.stringify(jsonObj, null, 2);
+        const indent = getIndent();
+        window.lastFormattedContent = JSON.stringify(jsonObj, null, indent);
         window.lastParsedJson = jsonObj;
         renderOutput(window.lastFormattedContent, 'json', fixed, jsonObj);
         setStatus('格式化成功' + (fixed ? '（已自动补全括号）' : ''));
@@ -1691,7 +1769,7 @@
 
     function selectListItem(index, arr) {
         window.listSelectedIndex = index;
-        window.lastDetailContent = JSON.stringify(arr[index], null, 2);
+        window.lastDetailContent = JSON.stringify(arr[index], null, getIndent());
         const items = document.querySelectorAll('.list-item');
         items.forEach((el, i) => el.classList.toggle('active', i === index));
 
@@ -1862,6 +1940,49 @@
         document.getElementById('input-size').textContent = '';
         document.getElementById('output-status').textContent = '';
         setStatus('已清空');
+    }
+
+    /* ==============================================================
+       Upload / Stringify / Unstringify
+    ============================================================== */
+    function uploadFile() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json,.txt,application/json,text/plain';
+        input.onchange = () => {
+            const file = input.files && input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                document.getElementById('input').value = String(reader.result);
+                document.getElementById('input').dispatchEvent(new Event('input'));
+                showToast('已加载 ' + file.name, 2000, 'icon-folder-open');
+            };
+            reader.readAsText(file);
+        };
+        input.click();
+    }
+
+    function stringifyJSON() {
+        const input = document.getElementById('input');
+        const value = input.value.trim();
+        clearNotifications();
+        if (!value) {
+            showToast('请先输入 JSON', 2000, 'icon-alert-triangle');
+            return;
+        }
+        try {
+            const obj = JSON.parse(value);
+            const result = JSON.stringify(JSON.stringify(obj));
+            window.lastFormattedContent = result;
+            window.lastParsedJson = obj;
+            renderOutput(result, 'json', false, result);
+            setStatus('JSON 转义成功');
+            updateOutputStatus(result);
+        } catch (error) {
+            showNotification('error', '无效的 JSON 格式：' + error.message);
+            setStatus('JSON 格式错误');
+        }
     }
 
     /* ==============================================================
@@ -2240,6 +2361,9 @@
     ============================================================== */
     function initInputTracker() {
         const input = document.getElementById('input');
+        const indicator = document.getElementById('validation-indicator');
+        let validateTimer = null;
+
         input.addEventListener('input', () => {
             const val = input.value;
             if (val) {
@@ -2248,6 +2372,24 @@
             } else {
                 document.getElementById('input-size').textContent = '';
             }
+
+            clearTimeout(validateTimer);
+            if (!val.trim()) {
+                indicator.style.display = 'none';
+                return;
+            }
+            validateTimer = setTimeout(() => {
+                try {
+                    JSON.parse(val);
+                    indicator.style.display = 'inline-flex';
+                    indicator.className = 'validation-indicator valid';
+                    indicator.innerHTML = '<span class="dot"></span> 有效';
+                } catch (e) {
+                    indicator.style.display = 'inline-flex';
+                    indicator.className = 'validation-indicator invalid';
+                    indicator.innerHTML = '<span class="dot"></span> ' + e.message.split('\n')[0];
+                }
+            }, 400);
         });
     }
 
