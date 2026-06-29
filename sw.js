@@ -1,4 +1,4 @@
-const CACHE_NAME = 'json-formatter-v2';
+const CACHE_NAME = 'json-formatter-v3';
 const urlsToCache = [
   '/beautifyjson/',
   '/beautifyjson/index.html',
