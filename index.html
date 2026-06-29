@@ -1327,7 +1327,7 @@
                 <svg class="svg-icon"><use href="#icon-code"/></svg>
                 格式化 <span class="shortcut">^&#9166;</span>
             </button>
-            <select class="indent-select" id="indent-select" title="缩进选项">
+            <select class="indent-select" id="indent-select" title="缩进选项" onchange="onIndentChange()">
                 <option value="2">2</option>
                 <option value="4">4</option>
                 <option value="tab">Tab</option>
@@ -1587,6 +1587,35 @@
         const v = document.getElementById('indent-select').value;
         if (v === 'tab') return '\t';
         return parseInt(v);
+    }
+
+    function onIndentChange() {
+        const input = document.getElementById('input');
+        if (!input.value.trim()) return;
+        try {
+            const obj = JSON.parse(input.value);
+            const indent = getIndent();
+            const formatted = JSON.stringify(obj, null, indent);
+            window.lastFormattedContent = formatted;
+            window.lastParsedJson = obj;
+            renderOutput(formatted, 'json', false, obj);
+            updateOutputStatus(formatted);
+            setStatus('格式化成功');
+        } catch (e) {
+            const fixResult = tryFixJson(input.value);
+            if (fixResult.success) {
+                try {
+                    const obj = JSON.parse(fixResult.json);
+                    const indent = getIndent();
+                    const formatted = JSON.stringify(obj, null, indent);
+                    window.lastFormattedContent = formatted;
+                    window.lastParsedJson = obj;
+                    renderOutput(formatted, 'json', true, obj);
+                    updateOutputStatus(formatted);
+                    setStatus('格式化成功（已自动补全括号）');
+                } catch (e2) {}
+            }
+        }
     }
 
     function formatJSON() {
