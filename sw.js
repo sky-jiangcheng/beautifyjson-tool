@@ -1,12 +1,12 @@
-const CACHE_NAME = 'json-formatter-v5';
+const CACHE_NAME = 'json-formatter-v6';
 const urlsToCache = [
   '/jsonbeautify/',
   '/jsonbeautify/index.html',
   '/jsonbeautify/manifest.json',
-  '/jsonbeautify/icon.svg?v=3',
-  '/jsonbeautify/icon-192.png?v=3',
-  '/jsonbeautify/icon-512.png?v=3',
-  '/jsonbeautify/favicon-32.png?v=3'
+  '/jsonbeautify/icon.svg?v=4',
+  '/jsonbeautify/icon-192.png?v=4',
+  '/jsonbeautify/icon-512.png?v=4',
+  '/jsonbeautify/favicon-32.png?v=4'
 ];
 
 self.addEventListener('install', event => {
