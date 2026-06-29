@@ -1667,17 +1667,33 @@
             return;
         }
 
+        let jsonObj = null;
+        let fixed = false;
         try {
-            const obj = JSON.parse(value);
-            window.lastFormattedContent = JSON.stringify(obj);
-            window.lastParsedJson = obj;
-            renderOutput(window.lastFormattedContent, 'json', false, obj);
-            setStatus('压缩成功');
-            updateOutputStatus(window.lastFormattedContent);
+            jsonObj = JSON.parse(value);
         } catch (error) {
-            showNotification('error', '无效的 JSON 格式：' + error.message);
-            setStatus('JSON 格式错误');
+            const fixResult = tryFixJson(value);
+            if (fixResult.success) {
+                try {
+                    jsonObj = JSON.parse(fixResult.json);
+                    fixed = true;
+                } catch (e2) {
+                    showNotification('error', '无效的 JSON 格式：' + error.message);
+                    setStatus('JSON 格式错误');
+                    return;
+                }
+            } else {
+                showNotification('error', '无效的 JSON 格式：' + error.message);
+                setStatus('JSON 格式错误');
+                return;
+            }
         }
+
+        window.lastFormattedContent = JSON.stringify(jsonObj);
+        window.lastParsedJson = jsonObj;
+        renderOutput(window.lastFormattedContent, 'json', fixed, jsonObj);
+        setStatus('压缩成功' + (fixed ? '（已自动补全括号）' : ''));
+        updateOutputStatus(window.lastFormattedContent);
     }
 
     /* ==============================================================
@@ -2001,18 +2017,35 @@
             showToast('请先输入 JSON', 2000, 'icon-alert-triangle');
             return;
         }
+
+        let jsonObj = null;
+        let fixed = false;
         try {
-            const obj = JSON.parse(value);
-            const result = JSON.stringify(JSON.stringify(obj));
-            window.lastFormattedContent = result;
-            window.lastParsedJson = obj;
-            renderOutput(result, 'json', false, result);
-            setStatus('JSON 转义成功');
-            updateOutputStatus(result);
+            jsonObj = JSON.parse(value);
         } catch (error) {
-            showNotification('error', '无效的 JSON 格式：' + error.message);
-            setStatus('JSON 格式错误');
+            const fixResult = tryFixJson(value);
+            if (fixResult.success) {
+                try {
+                    jsonObj = JSON.parse(fixResult.json);
+                    fixed = true;
+                } catch (e2) {
+                    showNotification('error', '无效的 JSON 格式：' + error.message);
+                    setStatus('JSON 格式错误');
+                    return;
+                }
+            } else {
+                showNotification('error', '无效的 JSON 格式：' + error.message);
+                setStatus('JSON 格式错误');
+                return;
+            }
         }
+
+        const result = JSON.stringify(JSON.stringify(jsonObj));
+        window.lastFormattedContent = result;
+        window.lastParsedJson = jsonObj;
+        renderOutput(result, 'json', false, result);
+        setStatus('JSON 转义成功' + (fixed ? '（已自动补全括号）' : ''));
+        updateOutputStatus(result);
     }
 
     /* ==============================================================
