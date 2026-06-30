@@ -1,0 +1,15 @@
+{
+  "name": "json-formatter",
+  "version": "1.2.0",
+  "description": "JSON 格式化工具 - Tauri 桌面应用",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "preview": "python3 -m http.server 8000"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

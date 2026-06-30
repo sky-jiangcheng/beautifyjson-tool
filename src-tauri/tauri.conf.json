@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/nicedoc/nicedoc/master/web.json",
+  "productName": "JSON 格式化工具",
+  "version": "1.2.0",
+  "identifier": "com.jsonbeautify.app",
+  "build": {
+    "frontendDist": "..",
+    "devUrl": "http://localhost:8000",
+    "beforeDevCommand": "",
+    "beforeBuildCommand": ""
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "JSON 格式化工具",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "createUpdaterArtifacts": false
+  }
+}

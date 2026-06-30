@@ -1,0 +1,23 @@
+[package]
+name = "json-formatter"
+version = "1.2.0"
+description = "JSON 格式化工具 - 支持格式化、压缩、树形视图、对比和历史记录"
+authors = ["sky-jiangcheng"]
+license = "MIT"
+repository = "https://github.com/sky-jiangcheng/jsonbeautify"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
