@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="96" fill="#0d1117"/>
-  <text x="256" y="340" text-anchor="middle" font-family="monospace" font-size="320" font-weight="bold" fill="#58a6ff">J</text>
+  <path d="M76 76h281v92h-92v199h-92v92h211v92H76V399h92v-98h92V167H76V76z" fill="#58a6ff"/>
 </svg>
