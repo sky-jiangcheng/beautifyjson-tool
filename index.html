@@ -1571,6 +1571,56 @@
     /* ==============================================================
        Core: Format / Minify / Fix
     ============================================================== */
+    function getFriendlyJsonError(error, input) {
+        var msg = error.message || String(error);
+        var raw = msg;
+        var posMatch = msg.match(/position\s+(\d+)/i);
+        var pos = posMatch ? parseInt(posMatch[1]) : -1;
+
+        var context = '';
+        if (pos >= 0 && input) {
+            var start = Math.max(0, pos - 30);
+            var end = Math.min(input.length, pos + 30);
+            var snippet = input.substring(start, end);
+            var marker = '';
+            for (var i = 0; i < Math.min(30, pos - start); i++) marker += ' ';
+            marker += '^';
+            context = '\n\n' + snippet + '\n' + marker;
+        }
+
+        if (msg.indexOf('Unexpected identifier') >= 0 || msg.indexOf('Unexpected token') >= 0) {
+            var idMatch = msg.match(/["']([^"']+)["']/);
+            var id = idMatch ? idMatch[1] : '';
+            if (id && /^[a-zA-Z_$]/.test(id)) {
+                return '检测到未加引号的标识符 "' + id + '"\nJSON 中的键名和字符串值必须用双引号包裹' + context;
+            }
+            return 'JSON 格式错误：' + msg + context;
+        }
+
+        if (msg.indexOf('Unexpected end of JSON') >= 0) {
+            return 'JSON 不完整，可能缺少闭合的括号、逗号或值' + context;
+        }
+
+        if (msg.indexOf('Expected') >= 0 && msg.indexOf('got') >= 0) {
+            return 'JSON 语法错误：' + msg + context;
+        }
+
+        if (msg.indexOf('Unexpected string') >= 0) {
+            return 'JSON 字符串位置不当，检查是否缺少逗号或括号' + context;
+        }
+
+        if (msg.indexOf('Unexpected number') >= 0) {
+            return '数字格式错误或位置不当' + context;
+        }
+
+        return 'JSON 格式错误：' + msg + context;
+    }
+
+    function tryFixUnquotedKeys(input) {
+        var result = input.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
+        return result;
+    }
+
     function tryFixJson(str) {
         let s = str.trim();
         let lc = (s.match(/\{/g) || []).length;
@@ -1598,11 +1648,17 @@
             try {
                 obj = JSON.parse(value);
             } catch (e) {
-                const fixResult = tryFixJson(value);
-                if (fixResult.success) {
-                    try { obj = JSON.parse(fixResult.json); } catch (e2) { return; }
-                } else {
-                    return;
+                var uq = tryFixUnquotedKeys(value);
+                if (uq !== value) {
+                    try { obj = JSON.parse(uq); } catch (e2) {}
+                }
+                if (!obj) {
+                    const fixResult = tryFixJson(value);
+                    if (fixResult.success) {
+                        try { obj = JSON.parse(fixResult.json); } catch (e2) { return; }
+                    } else {
+                        return;
+                    }
                 }
             }
         }
@@ -1630,20 +1686,33 @@
         try {
             jsonObj = JSON.parse(value);
         } catch (error) {
-            const fixResult = tryFixJson(value);
-            if (fixResult.success) {
+            var fixMsg = '';
+            var v = value;
+            var uq = tryFixUnquotedKeys(v);
+            if (uq !== v) {
                 try {
-                    jsonObj = JSON.parse(fixResult.json);
+                    jsonObj = JSON.parse(uq);
                     fixed = true;
-                } catch (e2) {
-                    showNotification('error', '无效的 JSON 格式：' + error.message);
+                    fixMsg = '（已自动为标识符添加引号）';
+                } catch (e2) {}
+            }
+            if (!jsonObj) {
+                const fixResult = tryFixJson(v);
+                if (fixResult.success) {
+                    try {
+                        jsonObj = JSON.parse(fixResult.json);
+                        fixed = true;
+                        fixMsg = fixMsg || '（已自动补全括号）';
+                    } catch (e2) {
+                        showNotification('error', getFriendlyJsonError(error, value));
+                        setStatus('JSON 格式错误');
+                        return;
+                    }
+                } else {
+                    showNotification('error', getFriendlyJsonError(error, value));
                     setStatus('JSON 格式错误');
                     return;
                 }
-            } else {
-                showNotification('error', '无效的 JSON 格式：' + error.message);
-                setStatus('JSON 格式错误');
-                return;
             }
         }
 
@@ -1651,7 +1720,7 @@
         window.lastFormattedContent = JSON.stringify(jsonObj, null, indent);
         window.lastParsedJson = jsonObj;
         renderOutput(window.lastFormattedContent, 'json', fixed, jsonObj);
-        setStatus('格式化成功' + (fixed ? '（已自动补全括号）' : ''));
+        setStatus('格式化成功' + (fixed ? fixMsg : ''));
         updateOutputStatus(window.lastFormattedContent);
     }
 
@@ -1669,20 +1738,24 @@
         try {
             jsonObj = JSON.parse(value);
         } catch (error) {
-            const fixResult = tryFixJson(value);
-            if (fixResult.success) {
-                try {
-                    jsonObj = JSON.parse(fixResult.json);
-                    fixed = true;
-                } catch (e2) {
-                    showNotification('error', '无效的 JSON 格式：' + error.message);
+            var v = value;
+            var uq = tryFixUnquotedKeys(v);
+            if (uq !== v) {
+                try { jsonObj = JSON.parse(uq); fixed = true; } catch (e2) {}
+            }
+            if (!jsonObj) {
+                const fixResult = tryFixJson(v);
+                if (fixResult.success) {
+                    try { jsonObj = JSON.parse(fixResult.json); fixed = true; } catch (e2) {
+                        showNotification('error', getFriendlyJsonError(error, value));
+                        setStatus('JSON 格式错误');
+                        return;
+                    }
+                } else {
+                    showNotification('error', getFriendlyJsonError(error, value));
                     setStatus('JSON 格式错误');
                     return;
                 }
-            } else {
-                showNotification('error', '无效的 JSON 格式：' + error.message);
-                setStatus('JSON 格式错误');
-                return;
             }
         }
 
@@ -2038,20 +2111,24 @@
         try {
             jsonObj = JSON.parse(value);
         } catch (error) {
-            const fixResult = tryFixJson(value);
-            if (fixResult.success) {
-                try {
-                    jsonObj = JSON.parse(fixResult.json);
-                    fixed = true;
-                } catch (e2) {
-                    showNotification('error', '无效的 JSON 格式：' + error.message);
+            var v = value;
+            var uq = tryFixUnquotedKeys(v);
+            if (uq !== v) {
+                try { jsonObj = JSON.parse(uq); fixed = true; } catch (e2) {}
+            }
+            if (!jsonObj) {
+                const fixResult = tryFixJson(v);
+                if (fixResult.success) {
+                    try { jsonObj = JSON.parse(fixResult.json); fixed = true; } catch (e2) {
+                        showNotification('error', getFriendlyJsonError(error, value));
+                        setStatus('JSON 格式错误');
+                        return;
+                    }
+                } else {
+                    showNotification('error', getFriendlyJsonError(error, value));
                     setStatus('JSON 格式错误');
                     return;
                 }
-            } else {
-                showNotification('error', '无效的 JSON 格式：' + error.message);
-                setStatus('JSON 格式错误');
-                return;
             }
         }
 
