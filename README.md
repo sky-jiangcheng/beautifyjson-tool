@@ -58,6 +58,25 @@ macOS 上使用 `Cmd` 替代 `Ctrl`。
 - 语法高亮: highlight.js
 - 存储: localStorage
 
+## 桌面应用 (Tauri)
+
+支持打包为原生桌面应用（macOS `.dmg`、Windows `.msi/.exe`、Linux `.deb/.AppImage`）。
+
+**构建前需安装**:
+- [Rust](https://rustup.rs/)
+- [Node.js](https://nodejs.org/)
+- Linux: `sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libssl-dev`
+- macOS: Xcode Command Line Tools
+- Windows: Microsoft Visual Studio C++ Build Tools + WebView2
+
+**构建步骤**:
+```bash
+npm install
+npm run build
+```
+
+构建产物在 `src-tauri/target/release/bundle/` 目录。
+
 ## 部署
 
 本项目为纯静态站点，部署到任意静态托管服务即可：
