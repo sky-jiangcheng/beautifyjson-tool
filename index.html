@@ -1609,7 +1609,8 @@
         const indent = getIndent();
         const formatted = JSON.stringify(obj, null, indent);
         window.lastFormattedContent = formatted;
-        renderOutput(formatted, 'json', false, obj);
+        window.lastParsedJson = obj;
+        renderTextOutput(formatted);
         updateOutputStatus(formatted);
         setStatus('格式化成功');
     }
