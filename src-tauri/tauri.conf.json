@@ -2,9 +2,9 @@
   "$schema": "https://raw.githubusercontent.com/nicedoc/nicedoc/master/web.json",
   "productName": "JSON 格式化工具",
   "version": "1.2.0",
-  "identifier": "com.jsonbeautify.app",
+  "identifier": "com.jsonbeautify.desktop",
   "build": {
-    "frontendDist": "..",
+    "frontendDist": "../dist",
     "devUrl": "http://localhost:8000",
     "beforeDevCommand": "",
     "beforeBuildCommand": ""
