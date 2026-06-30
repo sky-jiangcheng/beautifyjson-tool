@@ -514,6 +514,48 @@
             border-left: 3px solid var(--yellow);
         }
 
+        .error-display {
+            padding: 20px 24px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .error-display .error-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--red);
+            font-family: var(--font-sans);
+        }
+        .error-display .error-msg {
+            font-size: 13px;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            font-family: var(--font-sans);
+        }
+        .error-display .error-snippet {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 12px 16px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--text-primary);
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .error-display .error-marker {
+            color: var(--red);
+            font-weight: bold;
+        }
+        .error-display .error-hint {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+        }
+
         .output-content-area {
             flex: 1;
             position: relative;
@@ -1704,13 +1746,11 @@
                         fixed = true;
                         fixMsg = fixMsg || '（已自动补全括号）';
                     } catch (e2) {
-                        showNotification('error', getFriendlyJsonError(error, value));
-                        setStatus('JSON 格式错误');
+                        showError(error, value);
                         return;
                     }
                 } else {
-                    showNotification('error', getFriendlyJsonError(error, value));
-                    setStatus('JSON 格式错误');
+                    showError(error, value);
                     return;
                 }
             }
@@ -1747,13 +1787,11 @@
                 const fixResult = tryFixJson(v);
                 if (fixResult.success) {
                     try { jsonObj = JSON.parse(fixResult.json); fixed = true; } catch (e2) {
-                        showNotification('error', getFriendlyJsonError(error, value));
-                        setStatus('JSON 格式错误');
+                        showError(error, value);
                         return;
                     }
                 } else {
-                    showNotification('error', getFriendlyJsonError(error, value));
-                    setStatus('JSON 格式错误');
+                    showError(error, value);
                     return;
                 }
             }
@@ -1774,11 +1812,55 @@
     }
 
     function showNotification(type, message) {
+        clearNotifications();
         const container = document.getElementById('output-notifications');
         const div = document.createElement('div');
         div.className = 'output-notification ' + type;
         div.textContent = message;
         container.appendChild(div);
+}
+
+    function renderErrorOutput(error, input) {
+        var msg = getFriendlyJsonError(error, input);
+        var posMatch = error.message.match(/position\s+(\d+)/i);
+        var pos = posMatch ? parseInt(posMatch[1]) : -1;
+
+        var snippetHtml = '';
+        if (pos >= 0 && input) {
+            var start = Math.max(0, pos - 60);
+            var end = Math.min(input.length, pos + 60);
+            var before = escapeHtml(input.substring(start, pos));
+            var at = escapeHtml(input.charAt(pos) || '');
+            var after = escapeHtml(input.substring(pos + 1, end));
+            if (start > 0) snippetHtml += '…';
+            snippetHtml += before + '<span class="error-marker">' + at + '</span>' + after;
+            if (end < input.length) snippetHtml += '…';
+        }
+
+        var area = document.getElementById('output-content-area');
+        var lineCount = input ? input.substring(0, pos).split('\n').length : 0;
+
+        var hints = [
+            '键名和字符串值必须用双引号（"）包裹',
+            '对象和数组的最后一个元素后不能有逗号',
+            '布尔值只能为 true 或 false（小写）',
+            'null 必须为小写',
+            '括号和花括号必须成对出现'
+        ];
+
+        area.innerHTML = '<div class="error-display">' +
+            '<div class="error-title">JSON 格式错误</div>' +
+            '<div class="error-msg">' + escapeHtml(msg.split('\n')[0]) + '</div>' +
+            (snippetHtml ? '<div class="error-snippet">' + snippetHtml + '</div>' : '') +
+            (lineCount ? '<div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">第 ' + lineCount + ' 行附近</div>' : '') +
+            '<div class="error-hint">JSON 语法规则：' + hints.join('；') + '</div>' +
+            '</div>';
+        renderLineNumbers(0);
+    }
+
+    function showError(error, input) {
+        renderErrorOutput(error, input);
+        setStatus('JSON 格式错误');
     }
 
     function renderEmptyContent() {
@@ -2120,13 +2202,11 @@
                 const fixResult = tryFixJson(v);
                 if (fixResult.success) {
                     try { jsonObj = JSON.parse(fixResult.json); fixed = true; } catch (e2) {
-                        showNotification('error', getFriendlyJsonError(error, value));
-                        setStatus('JSON 格式错误');
+                        showError(error, value);
                         return;
                     }
                 } else {
-                    showNotification('error', getFriendlyJsonError(error, value));
-                    setStatus('JSON 格式错误');
+                    showError(error, value);
                     return;
                 }
             }
