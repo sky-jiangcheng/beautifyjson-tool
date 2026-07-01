@@ -244,33 +244,6 @@
         .btn .svg-icon { color: currentColor; }
 
         /* ========== Indent Select ========== */
-        .indent-select {
-            appearance: none;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 2px 14px 2px 5px;
-            font-size: 11px;
-            font-family: var(--font-mono);
-            cursor: pointer;
-            height: 28px;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='6' height='4'%3E%3Cpath d='M0 0l3 4 3-4z' fill='%238b949e'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 4px center;
-        }
-        .indent-select:hover {
-            border-color: var(--text-muted);
-            color: var(--text-primary);
-        }
-        .indent-select:focus {
-            outline: none;
-            border-color: var(--border-focus);
-            box-shadow: var(--shadow-glow);
-        }
-
         /* ========== Validation Indicator ========== */
         .validation-indicator {
             display: inline-flex;
@@ -1369,11 +1342,6 @@
                 <svg class="svg-icon"><use href="#icon-code"/></svg>
                 格式化 <span class="shortcut">^&#9166;</span>
             </button>
-            <select class="indent-select" id="indent-select" title="缩进选项" onchange="onIndentChange()">
-                <option value="2">2</option>
-                <option value="4">4</option>
-                <option value="tab">Tab</option>
-            </select>
             <button class="btn" onclick="minifyJSON()" title="压缩 JSON">
                 压缩
             </button>
@@ -1675,44 +1643,6 @@
         return { success: ok, json: fixed };
     }
 
-    function getIndent() {
-        const v = document.getElementById('indent-select').value;
-        if (v === 'tab') return '\t';
-        return parseInt(v);
-    }
-
-    function onIndentChange() {
-        const input = document.getElementById('input');
-        let obj = window.lastParsedJson;
-        if (!obj) {
-            const value = input.value.trim();
-            if (!value) return;
-            try {
-                obj = JSON.parse(value);
-            } catch (e) {
-                var uq = tryFixUnquotedKeys(value);
-                if (uq !== value) {
-                    try { obj = JSON.parse(uq); } catch (e2) {}
-                }
-                if (!obj) {
-                    const fixResult = tryFixJson(value);
-                    if (fixResult.success) {
-                        try { obj = JSON.parse(fixResult.json); } catch (e2) { return; }
-                    } else {
-                        return;
-                    }
-                }
-            }
-        }
-        const indent = getIndent();
-        const formatted = JSON.stringify(obj, null, indent);
-        window.lastFormattedContent = formatted;
-        window.lastParsedJson = obj;
-        renderTextOutput(formatted);
-        updateOutputStatus(formatted);
-        setStatus('格式化成功');
-    }
-
     function formatJSON() {
         const input = document.getElementById('input');
         const value = input.value.trim();
@@ -1756,7 +1686,7 @@
             }
         }
 
-        const indent = getIndent();
+        const indent = 2;
         window.lastFormattedContent = JSON.stringify(jsonObj, null, indent);
         window.lastParsedJson = jsonObj;
         renderOutput(window.lastFormattedContent, 'json', fixed, jsonObj);
